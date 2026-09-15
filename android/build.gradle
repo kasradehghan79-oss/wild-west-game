@@ -1,0 +1,5 @@
+// Root Gradle file. The app module applies the Android plugin itself, so this
+// only declares the plugin version to use.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

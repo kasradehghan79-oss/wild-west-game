@@ -1,0 +1,72 @@
+// ============================================================================
+// The Wild West - Android app module
+//
+// The game itself is plain web files at the repository root; this module only
+// adds the WebView shell and copies the web build into the APK. Nothing is
+// duplicated in the repository - the assets folder is generated at build time.
+//
+// Build:  ./gradlew assembleDebug        (or press Run in Android Studio)
+// APK:    app/build/outputs/apk/debug/app-debug.apk
+// ============================================================================
+plugins {
+    id 'com.android.application'
+}
+
+// The web game lives two levels up (repository root).
+def webRoot = file("$rootDir/..")
+
+android {
+    namespace 'com.kasradn.wildwest'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.kasradn.wildwest'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    buildTypes {
+        debug {
+            // debug key, installable straight from Android Studio
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            // swap in your own signing config before publishing to Play
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    // keep the APK small: the game has no native code and no Java libraries
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/**', '**/*.kotlin_metadata']
+        }
+    }
+}
+
+// Copy index.html, css/ and js/ into the APK's assets/www so the WebView can
+// load file:///android_asset/www/index.html. Runs before every build, so the
+// APK always carries the current game.
+tasks.register('syncWebAssets', Copy) {
+    from(webRoot) {
+        include 'index.html'
+        include 'css/**'
+        include 'js/**'
+    }
+    into "$projectDir/src/main/assets/www"
+}
+
+tasks.named('preBuild').configure { dependsOn 'syncWebAssets' }
+tasks.named('clean').configure {
+    doLast {
+        delete "$projectDir/src/main/assets/www"
+    }
+}

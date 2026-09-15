@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The game ships as a WebView shell: one activity, no SDK dependencies, the whole
+  web build copied into assets/www at build time.
+
+  Note the namespace is intentionally NOT declared here (no package="..."), which
+  is what modern Android Gradle Plugin wants - it comes from `namespace` in
+  app/build.gradle. build-apk.ps1 injects it for the command line aapt2 path.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+  <!-- Android 7.0+. WebView with WebGL is required; there is nothing else to ask for. -->
+  <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+  <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+  <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+
+  <application
+      android:label="@string/app_name"
+      android:icon="@mipmap/ic_launcher"
+      android:hardwareAccelerated="true"
+      android:allowBackup="true"
+      android:supportsRtl="false"
+      android:theme="@style/GameTheme">
+
+    <activity
+        android:name=".MainActivity"
+        android:exported="true"
+        android:label="@string/app_name"
+        android:launchMode="singleTask"
+        android:screenOrientation="sensorLandscape"
+        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density|uiMode"
+        android:theme="@style/GameTheme">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

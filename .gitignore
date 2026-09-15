@@ -1,0 +1,9 @@
+# build outputs
+dist/
+android/build/
+
+# playwright / tooling scratch
+.playwright-mcp/
+
+# machine specific
+*.log

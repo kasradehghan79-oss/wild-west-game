@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fullscreen with no title bar, and the game's own background colour behind
+         the WebView while it boots (so there is no white flash).
+         The display cutout mode is set from MainActivity instead, because the
+         attribute only exists from API 28 and minSdk here is 24. -->
+    <style name="GameTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">#0A0806</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>

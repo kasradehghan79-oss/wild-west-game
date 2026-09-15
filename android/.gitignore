@@ -1,0 +1,14 @@
+# Android build outputs and machine specific files
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+captures/
+
+# generated: the web game is copied here at build time
+app/src/main/assets/www/
+
+# local signing material - never commit these
+*.keystore
+*.jks

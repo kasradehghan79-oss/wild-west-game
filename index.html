@@ -1,0 +1,199 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#140d04">
+<title>The Wild West</title>
+<!-- an icon link with an empty data URI: stops the browser asking for a
+     /favicon.ico that a static build and a file:// WebView cannot serve -->
+<link rel="icon" href="data:,">
+<!-- Styles are split by surface: page shell, in-game HUD, menus and overlays. -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/hud.css">
+<link rel="stylesheet" href="css/menus.css">
+</head>
+<body>
+<div id="hud"><b>WILD WEST</b><br><span id="status"></span></div>
+
+<div id="score">
+  <div class="pts">OUTLAWS <b id="pOut">0</b> &mdash; <b id="pLaw">0</b> LAW</div>
+  <div class="sub" id="scoreSub">ROUND 1 / 5</div>
+  <div class="time" id="scoreTime">60</div>
+</div>
+
+<div id="objective"><b id="objTitle"></b><span id="objSub"></span></div>
+
+<div id="rightpanel">
+  <canvas id="minimap" width="148" height="148"></canvas>
+  <div id="wanted"></div>
+  <div id="cash">$0</div>
+</div>
+
+<div id="vitals">
+  <div id="hearts"></div>
+  <div id="stamwrap"><span id="stamfill"></span></div>
+  <div id="ammo"><b id="ammoCount">8</b><span id="ammoName">REVOLVER</span></div>
+  <div id="reloadBar"><span id="reloadFill"></span></div>
+</div>
+
+<div id="crosshair"><div class="t"></div><div class="b"></div><div class="l"></div><div class="r"></div><div class="dot"></div></div>
+<div id="hitmarker"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
+<div id="dmgNums"></div>
+<div id="killfeed"></div>
+<div id="dmg"></div>
+<div id="lowhp"></div>
+
+<div id="btnHelp">?</div>
+<div id="btnFsPc"><svg viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2.4" stroke-linecap="round"><path d="M4 10V4h6M14 4h6v6M20 14v6h-6M10 20H4v-6"/></svg></div>
+<div id="helptext">
+  <span class="pc"><b>PC</b> &middot; WASD move &middot; Shift sprint &middot; Space jump &middot; Mouse aim<br>
+  Left click shoot &middot; Right click aim down sights &middot; R reload &middot; 1 / 2 weapons<br>
+  E mount / dismount &middot; F interact at the General Store &middot; Esc pause</span>
+  <span class="tv"><b>TOUCH</b> &middot; drag the left half to move, push the stick to the rim to sprint<br>
+  drag the right half to look &middot; FIRE / AIM / JUMP / RELOAD are the round buttons<br>
+  STORE or MOUNT appears in the pill at the bottom when you are close &middot; PAUSE has sound, quality and look</span>
+</div>
+
+<div class="overlay show" id="start">
+  <h1>WILD WEST</h1>
+  <div class="tag">Bounty Hunter &mdash; Outlaw or Dead</div>
+  <div class="keys">
+    <i>WASD</i><span>Move</span>
+    <i>Shift</i><span>Sprint</span>
+    <i>Space</i><span>Jump</span>
+    <i>Mouse</i><span>Aim &middot; Left click to shoot</span>
+    <i>Right click</i><span>Aim down sights</span>
+    <i>R</i><span>Reload</span>
+    <i>1 / 2</i><span>Switch weapon</span>
+    <i>E</i><span>Mount horse</span>
+    <i>F</i><span>General Store</span>
+    <i>Esc</i><span>Pause</span>
+  </div>
+  <div class="play" id="startBtn">PLAY</div>
+  <div class="credit">Created by Kasra_dn</div>
+</div>
+
+<div class="overlay" id="pause">
+  <h2>PAUSED</h2>
+  <div class="row"><label>Mouse sens</label><input id="setSens" type="range" min="4" max="60" value="22"></div>
+  <div class="row"><label>Volume</label><input id="setVol" type="range" min="0" max="100" value="70"></div>
+  <div class="row"><label>Quality</label><input id="setQual" type="range" min="0" max="2" step="1" value="2"></div>
+  <div class="row"><label>Vertical look</label><div class="mbtn" id="setInvert" style="flex:1;text-align:center;padding:7px 12px;">NORMAL</div></div>
+  <div class="btns">
+    <div class="mbtn" id="resumeBtn">RESUME</div>
+    <div class="mbtn" id="restartBtn">RESTART MATCH</div>
+  </div>
+  <small>Quality: 0 = fastest, 2 = best shadows &amp; particles</small>
+</div>
+
+<div class="overlay" id="roundend"><b id="reTitle"></b><span id="reSub"></span></div>
+<div class="overlay" id="dead">
+  <b id="deadTitle">YOU DIED</b>
+  <span id="deadSub">tap to continue</span>
+  <span class="stat" id="deadStat"></span>
+</div>
+
+<div class="overlay" id="shop">
+  <div class="panel">
+    <h2>GENERAL STORE</h2>
+    <div class="sub">CASH <b id="shopCash">$0</b> &middot; upgrades last the whole match</div>
+    <div class="items" id="shopItems"></div>
+    <div class="btns"><div class="mbtn" id="shopClose">LEAVE</div></div>
+  </div>
+</div>
+
+<div id="touchUI">
+  <div id="stick"><div id="knob"></div></div>
+
+  <!-- Combat cluster: sits in the bottom-right thumb arc. FIRE takes the corner,
+       the others roll around it, and nothing strays into the upper right so the
+       whole right half stays free for dragging the camera. Sizes and offsets are
+       in vh, so the layout scales with the screen. -->
+  <div class="tbtn fire" id="btnFire">
+    <svg viewBox="0 0 24 24" fill="#f0d9a8"><rect x="1" y="7" width="16" height="3.2" rx="1"/><path d="M5 10.2 3.6 17h3.2l1.6-4.6z"/><rect x="17" y="7.6" width="2.5" height="2" rx="0.5"/></svg>
+    <span>FIRE</span>
+  </div>
+  <div class="tbtn aim" id="btnAim">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2"><circle cx="12" cy="12" r="5.5"/><line x1="12" y1="1" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="23"/><line x1="1" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="23" y2="12"/></svg>
+    <span>AIM</span>
+  </div>
+  <div class="tbtn jump" id="btnJump">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><polyline points="5.5 11.5 12 5 18.5 11.5"/></svg>
+    <span>JUMP</span>
+  </div>
+  <div class="tbtn reload" id="btnReload">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 4 22 10 16 10"/><path d="M20.5 15a8.5 8.5 0 1 1-2-8.9L22 10"/></svg>
+    <span>RELOAD</span>
+  </div>
+
+  <!-- Menus live at the top, out of both thumb zones. -->
+  <div class="tbtn pause" id="btnPause">
+    <svg viewBox="0 0 24 24" fill="#f0d9a8"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+  </div>
+  <div class="tbtn full" id="btnFs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2.4" stroke-linecap="round"><path d="M4 10V4h6M14 4h6v6M20 14v6h-6M10 20H4v-6"/></svg>
+  </div>
+
+  <!-- Contextual action (store / mount): one labelled pill at the bottom centre,
+       where it is readable and cannot be confused with the combat buttons. Only
+       one of these is ever relevant at a time. -->
+  <div class="tbtn ctx" id="btnContext" data-action="">
+    <svg id="ctxIcon" viewBox="0 0 24 24" fill="none" stroke="#f0d9a8" stroke-width="2" stroke-linecap="round"><path d="M5 21C3 15 3 8.5 7.5 6.5 10 5.3 14 5.3 16.5 6.5 21 8.5 21 15 19 21"/></svg>
+    <span id="ctxLabel">MOUNT</span>
+  </div>
+</div>
+<div id="touchhint">left: move (push to the rim to sprint) &middot; right: drag to look</div>
+
+
+<!-- three.js r128, vendored next to the game so it runs with no network at all
+     (required for the Android build, and nicer for local play too). -->
+<script src="js/vendor/three.min.js"></script>
+
+<!-- Game source. These are classic scripts sharing one global scope, so the order
+     below is load bearing: each file may use anything declared above it. The
+     number is the load index, described per file in README.md. -->
+  <script src="js/core/utils.js"></script>              <!-- 01 -->
+  <script src="js/core/settings.js"></script>           <!-- 02 -->
+  <script src="js/core/engine.js"></script>             <!-- 03 -->
+  <script src="js/world/sky.js"></script>               <!-- 04 -->
+  <script src="js/core/lights.js"></script>             <!-- 05 -->
+  <script src="js/world/cycle.js"></script>             <!-- 06 -->
+  <script src="js/core/materials.js"></script>          <!-- 07 -->
+  <script src="js/entities/weapon-models.js"></script>  <!-- 08 -->
+  <script src="js/world/textures.js"></script>          <!-- 09 -->
+  <script src="js/world/terrain.js"></script>           <!-- 10 -->
+  <script src="js/world/ground.js"></script>            <!-- 11 -->
+  <script src="js/world/lakes.js"></script>             <!-- 12 -->
+  <script src="js/world/mountains.js"></script>         <!-- 13 -->
+  <script src="js/core/collision.js"></script>          <!-- 14 -->
+  <script src="js/world/buildings.js"></script>         <!-- 15 -->
+  <script src="js/world/nature.js"></script>            <!-- 16 -->
+  <script src="js/world/props.js"></script>             <!-- 17 -->
+  <script src="js/entities/human.js"></script>          <!-- 18 -->
+  <script src="js/entities/archetypes.js"></script>     <!-- 19 -->
+  <script src="js/entities/npcs.js"></script>           <!-- 20 -->
+  <script src="js/entities/locomotion.js"></script>     <!-- 21 -->
+  <script src="js/entities/horse.js"></script>          <!-- 22 -->
+  <script src="js/world/campfire.js"></script>          <!-- 23 -->
+  <script src="js/fx/particles.js"></script>            <!-- 24 -->
+  <script src="js/fx/casings.js"></script>              <!-- 25 -->
+  <script src="js/core/audio.js"></script>              <!-- 26 -->
+  <script src="js/entities/weapons.js"></script>        <!-- 27 -->
+  <script src="js/game/dom.js"></script>                <!-- 28 -->
+  <script src="js/game/state.js"></script>              <!-- 29 -->
+  <script src="js/game/shop.js"></script>               <!-- 30 -->
+  <script src="js/game/rounds.js"></script>             <!-- 31 -->
+  <script src="js/fx/decals.js"></script>               <!-- 32 -->
+  <script src="js/entities/shooting.js"></script>       <!-- 33 -->
+  <script src="js/core/input.js"></script>              <!-- 34 -->
+  <script src="js/core/touch.js"></script>              <!-- 35 -->
+  <script src="js/entities/mount.js"></script>          <!-- 36 -->
+  <script src="js/world/store.js"></script>             <!-- 37 -->
+  <script src="js/render/post.js"></script>             <!-- 38 -->
+  <script src="js/game/loop.js"></script>               <!-- 39 -->
+
+</body>
+</html>

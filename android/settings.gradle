@@ -1,0 +1,18 @@
+// Android build for The Wild West. This mirrors what build-apk.ps1 does, but with
+// Gradle so Android Studio can build and run it directly.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "The Wild West"
+include ':app'

@@ -1,0 +1,21 @@
+/* ==========================================================================
+   The Wild West - css/base.css
+   Theme variables, reset and page shell.
+   ========================================================================== */
+
+  :root {
+    --gold: #d3a95c; --gold2: #ffd97a; --ink: #f0d9a8; --blood: #c0392b;
+    --panel: linear-gradient(180deg, rgba(32,22,8,.86), rgba(12,8,3,.9));
+    --edge: rgba(211,169,92,.85);
+    /* device safe areas: notch, punch hole, gesture bar. Zero on desktop. */
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; overflow: hidden; font-family: "Trebuchet MS", Verdana, sans-serif; background: #0a0806; color: #fff; }
+  canvas { display: block; }
+
