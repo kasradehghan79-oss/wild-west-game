@@ -37,11 +37,10 @@ WINDOWS = ROOT / "windows"
 DIST = ROOT / "dist"
 BUILD = WINDOWS / "build"
 
-# What a player needs at runtime, and nothing else: the tests, the Android shell,
-# the brand sources and the tools are all build time things. The game itself comes
-# from dist/www, the compiled build - the setup file is downloaded and opened by
-# strangers, so it carries the game, not the repository.
-WEB_BUILD = ROOT / "dist" / "www"
+# what a player needs at runtime, and nothing else: the tests, the Android
+# shell, the brand sources and the tools are all build time things
+PAYLOAD_DIRS = ["css", "js"]
+PAYLOAD_FILES = ["index.html"]
 
 README = """The Wild West
 =============
@@ -98,25 +97,25 @@ def framework_dir(csc: Path) -> Path:
     return csc.parent
 
 
-def build_web() -> None:
-    """The compiled build, from source, every time: a stale dist/www would ship
-    a stale game, and the sources are not what goes in the installer."""
-    subprocess.run(["node", str(ROOT / "tools" / "make-dist.mjs")],
-                   cwd=str(ROOT), check=True)
-    if not (WEB_BUILD / "index.html").is_file():
-        die("tools/make-dist.mjs did not produce dist/www/index.html")
-
-
 def payload_files() -> list[Path]:
-    if not (WEB_BUILD / "index.html").is_file():
-        die("no web build at dist/www - run: node tools/make-dist.mjs")
-    return sorted(p for p in WEB_BUILD.rglob("*") if p.is_file())
+    files: list[Path] = []
+    for name in PAYLOAD_FILES:
+        path = ROOT / name
+        if not path.exists():
+            die(f"missing {name} - this is not a complete checkout")
+        files.append(path)
+    for name in PAYLOAD_DIRS:
+        directory = ROOT / name
+        if not directory.is_dir():
+            die(f"missing {name}/ - this is not a complete checkout")
+        files.extend(sorted(p for p in directory.rglob("*") if p.is_file()))
+    return files
 
 
 def make_payload(files: list[Path], target: Path) -> int:
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for path in files:
-            z.write(path, path.relative_to(WEB_BUILD).as_posix())
+            z.write(path, path.relative_to(ROOT).as_posix())
         z.writestr("READ-ME.txt", README.replace("\n", "\r\n"))
     return target.stat().st_size
 
@@ -154,7 +153,6 @@ def build(quiet: bool = False) -> Path:
         say(f"version   {ver}")
 
     BUILD.mkdir(parents=True, exist_ok=True)
-    build_web()
     files = payload_files()
     payload = BUILD / "payload.zip"
     size = make_payload(files, payload)
@@ -217,8 +215,8 @@ def selftest(exe: Path) -> int:
                               capture_output=True, text=True, errors="replace", timeout=300)
         if proc.returncode != 0:
             failures.append(f"the installer exited {proc.returncode}: {proc.stdout} {proc.stderr}")
-        wanted = ["index.html", "READ-ME.txt", "css/base.css", "app.js",
-                  "js/vendor/three.min.js"]
+        wanted = ["index.html", "READ-ME.txt", "css/base.css", "js/game/loop.js",
+                  "js/game/splash.js", "js/vendor/three.min.js", "js/entities/shooting.js"]
         for name in wanted:
             if not (target / name).exists():
                 failures.append(f"missing after install: {name}")
@@ -252,7 +250,6 @@ def main() -> int:
     if args.check:
         csc = find_csc()
         ver = version()
-        build_web()
         files = payload_files()
         ico = BUILD / "brand.ico"
         print("== Checking the Windows build")
@@ -260,7 +257,7 @@ def main() -> int:
         say(f"compiler  {csc if csc else 'MISSING - needs Windows with .NET Framework 4.x'}")
         say(f"version   {ver}")
         say(f"payload   {len(files)} files, {sum(p.stat().st_size for p in files) / 1024:.0f} KB")
-        for name in ["index.html", "app.js", "css/base.css", "js/vendor/three.min.js"]:
+        for name in ["index.html", "css/base.css", "js/game/splash.js", "js/vendor/three.min.js"]:
             say(f"  {'ok ' if (ROOT / name).exists() else 'MISSING'} {name}")
         say(f"icon      {ico.name} {'present' if ico.exists() else 'will be built from the Android artwork'}")
         if not csc:

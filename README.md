@@ -47,32 +47,6 @@ committed APK is never a stale one.
 
 ---
 
-## What ships, and what can be read
-
-The repository is meant to be read. What leaves it is not. `tools/make-dist.mjs`
-folds the 57 game scripts into one wrapped in an IIFE - which turns every shared
-global into a local, so a compiler may rename all of them - and runs that
-through the Closure Compiler, which drops every comment, every blank line and
-every name it can. `dist/www/` is the result, and it is what the APK and the
-Windows setup carry: unzipping either one gives you a 213 KB script, not the
-source.
-
-```bash
-node tools/make-dist.mjs    # -> dist/www  (index.html, app.js, css/, js/vendor/)
-```
-
-Both builders run it themselves, so a stale copy cannot ship, and
-`tests/dist.spec.mjs` plays that build through the page - its globals are gone,
-so it is driven like a player would - and checks that the source names, the
-comments and the file layout are no longer in there.
-
-**This is deterrence, not protection, and it is worth being plain about that.**
-Anything a machine can run, a determined person can read: the compiled script is
-still JavaScript, and a patient reader with a debugger can follow what it does.
-What it stops is the casual thing - downloading the APK, unzipping it, and
-finding the game's source, comments and all, sitting in `assets/www`.
-
----
 ## Windows
 
 `windows/` builds a setup file for any Windows 10 or 11 PC: a normal
