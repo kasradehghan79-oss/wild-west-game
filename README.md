@@ -53,12 +53,15 @@ css/
 js/
   core/
     utils.js          maths/colour/scratch helpers used everywhere
+    event-bus.js      Bus: one publish/subscribe channel between systems
     settings.js       player settings (localStorage) + sRGB→linear helper
     engine.js         renderer, scene, camera, resize
     lights.js         hemisphere, ambient, sun + shadow camera, moon, camp glow
     materials.js      material/mesh factories + the linear-space sweep
     collision.js      static collision circles, movement resolver
     audio.js          WebAudio synth (no audio assets)
+    game-state.js     Mode: the named states and the one author of "frozen"
+    save-system.js    Save: versioned snapshots, slots, autosave, validation
     input.js          keyboard, mouse, pointer-lock look, settings panel bindings
     touch.js          mobile controls
   world/
@@ -84,15 +87,25 @@ js/
     horse.js          horse geometry/rig + updateHorse
     shooting.js       the player's shot: hitscan, damage, recoil
     mount.js          mounting and dismounting
+  ai/
+    perception.js     sight, hearing and memory: what an NPC can notice and recall
+    behavior.js       the state machine that turns that into what he is doing
+    squad.js          shared sightings, roles and orders for the posse
   fx/
     particles.js      point-sprite dust and glow systems
     casings.js        ejected brass
     decals.js         bullet holes, blood splats/pools, tracers
+  missions/
+    objectives.js     the reusable objective components (kill, reach, survive, escort...)
+    mission.js        a mission: stages, failure conditions, rewards, branching
+    manager.js        which missions are running, flags, markers, prompts, save/load
+    catalog.js        the missions themselves, as data
   game/
     dom.js            every DOM handle, resolved once
     state.js          health, stamina, score, wanted level, HUD feedback
     shop.js           general store economy
     rounds.js         round/match flow, scoring, respawns
+    save-ui.js        save/load screen, pause menu entries, CONTINUE
     loop.js           player input, camera, HUD drawing, day/night, main frame loop
   render/
     post.js           MSAA target, bloom, ACES tonemap, grade, vignette, sRGB encode
@@ -130,6 +143,210 @@ positions where `collide()` is true). That is why grass avoids the buildings.
 
 ---
 
+## Game states, events and saves
+
+Three small modules carry the cross-cutting concerns, so no gameplay file has to
+know about the menus and no menu has to know about gameplay:
+
+- **`Mode`** (`js/core/game-state.js`) owns the states — `boot`, `menu`,
+  `playing`, `paused`, `shop`, `dialogue`, `inventory`, `missionComplete`,
+  `missionFailed`, `dead`, `over`. It is the *only* writer of the `paused` and
+  `shopOpen` flags that older systems read, and `Mode.live()` is the single
+  definition of "the match is running" that the frame loop and every gameplay
+  system ask. Anything that moves or ticks is gated on it, so pausing genuinely
+  stops the world: NPCs, the horse rig, particles, shell casings, pickups, the
+  round timer, the day/night clock, wanted decay and passive healing all hold
+  still behind a menu instead of running on.
+- **`Bus`** (`js/core/event-bus.js`) is a publish/subscribe channel so systems
+  can react to each other without importing each other. Live channels:
+  `mode:change`, `round:start`, `round:end`, `player:hurt`, `player:died`,
+  `save:loaded`. A listener that throws is caught and logged, never fatal.
+- **`Save`** (`js/core/save-system.js`) writes versioned snapshots into
+  `localStorage` under `wildwest.save.<slot>`: three manual slots plus a rolling
+  `auto`. Autosave is written at every round boundary and on a fresh match, and
+  manual saves can be taken from the pause menu at any time. Reading never trusts
+  the file: every field is type checked, clamped into the range the game can run
+  with, and defaulted if missing, so a tampered or half written save cannot put
+  the world into an impossible state — and the previous contents of a slot are
+  kept as a fallback before it is overwritten. A save that cannot be parsed is
+  reported as `corrupt` in the UI rather than silently deleted.
+
+Loading rebuilds a clean round and then stamps the saved progress over it, so
+every derived system (NPC respawn, spawn points, pickups, effects) starts from a
+state the game knows how to run. A saved position that is inside a wall after the
+rebuild is nudged to the nearest clear spot.
+
+---
+
+## Crimes, witnesses and the law
+
+The wanted level is not a timer, it is a record. `js/law/` keeps that record and
+the people who can add to it:
+
+- **`law.js`** — a table of crimes and what each is worth
+  (`gunfire`, `menace`, `assault`, `theft`, `property`, `robbery`, `horseTheft`,
+  `murder`, `lawman`). Heat accumulates, and the wanted level is *derived* from the
+  running total, so the level is a consequence rather than a counter. On top of it
+  sits the escalation table: one deputy comes asking at 1, a pair at 2, the sheriff
+  rides out at 3, a search party at 4, and at 5 a price is set on your head. The record
+  cools when nobody has eyes on you, and it is saved, so consequences outlive the round
+  they were earned in.
+  **The posse is a fixed garrison.** The town holds exactly as many lawmen as the chosen
+  difficulty says - four at GREENHORN up to eleven at LEGEND, one of them the sheriff and
+  the top levels including bounty hunters - and it is rebuilt to that roster at the start
+  of each round, entering from fixed posts on the roads into town. Nothing spawns a lawman
+  mid-round: a rising wanted level *commits* men who already exist, so the headcount in the
+  street never changes and no one ever materialises beside the player. **Noise is a confrontation, blood is a gunfight**: firing into the dirt or a wall buys you a deputy's
+  attention: he comes and stands in front of you with his gun out and does not shoot. Shoot a
+  *person* - assault, murder, a lawman, armed robbery - and the county answers with lead
+  immediately, at whatever wanted level that offence happens to earn. Anyone you shoot at may
+  return fire regardless (self defence needs no permission).
+- **`witnesses.js`** — a crime is only worth what somebody saw. A crime opens a
+  case, and the case finds its witnesses with the *same* senses the AI uses
+  (`Perceive.canSee`: range, field of view, line of sight). A witness runs for the
+  nearest lawman, and only when he gets there does the report land and the heat
+  arrive — which is the window the player plays in: run him down, put a gun on him
+  (a levelled gun for a second makes him drop it), or pay him off with the `BRIBE`
+  pill. Silence him and the case goes cold; spare one of three and the other two
+  still talk.
+
+Shooting, wounding and killing all feed it: public gunfire is a crime when it is
+seen, an assault is worth more, and the death of a lawman is worth the most. The
+HUD shows the price on your head while there is one.
+
+---
+
+## Difficulty
+
+Five levels - GREENHORN, DEPUTY, GUNHAND, OUTLAW, LEGEND - picked on the title
+screen or in the pause menu, remembered in settings, and applied from a single
+table in `js/core/difficulty.js`. Nothing else reads that table: every system asks
+the module for a scaled number, so the shape of a level can change without touching
+a call site.
+
+A level turns every knob that matters, not just enemy health: foe health, damage,
+miss chance, fire rate, reaction time and engagement range; how far they can see,
+how fast they work it out and how hard they press as a squad; **how many lawmen there are at all** (4 at GREENHORN up to 11 at LEGEND, one of them the sheriff, including bounty hunters at the top); how often the law
+calls for help; your own damage, your healing rate and how many bandages and
+cartridges the county has lying around; shop prices and mission pay; how long the
+wanted level takes to cool off; and the width of the aim assist cone. Missions
+scale too - more men in a crowd objective, shorter hold-outs, tighter clocks - but
+a count of one is always one, so the sheriff is still one man to find.
+
+| Level | Tag | In one line |
+| --- | --- | --- |
+| GREENHORN | EASY | They miss a lot, they hesitate, and the county is generous. |
+| DEPUTY | NORMAL | Forgiving, but they will still shoot back. |
+| GUNHAND | HARD | The balance the game was tuned around. |
+| OUTLAW | VERY HARD | Cover matters. Every shot has to count. |
+| LEGEND | BRUTAL | One mistake. They remember your face. |
+
+The tuning baseline sits at **HARD**: GUNHAND's numbers are the ones the game was
+balanced around, and the two levels below it are progressively softer so there is
+room to learn. DEPUTY (the default) is one notch gentler than that baseline, and
+GREENHORN below it is gentler again.
+
+---
+
+## Perception, behaviour and squads
+
+NPCs notice things before anyone shoots. `js/ai/` is a three part layer over the
+existing movement and combat code, which it left alone:
+
+- **`perception.js`** — every archetype has senses: a sight range, a field of view,
+  a hearing radius, sharpness and courage (`SENSES`). Sight is not a distance check:
+  it is a field of view test plus a real line of sight ray against the same `solid`
+  list that blocks movement, re-checked a few times a second and staggered across
+  the cast so the cost per frame stays flat. Hearing is a `Perceive.noise(x, z,
+  radius, kind)` event, fired by gunshots, shouts and bodies hitting the dirt. Out
+  of both comes `suspicion` (0..1), which *settles towards* what the man is actually
+  looking at - a stranger walking past levels off around 0.25, a levelled gun, a
+  fresh shot, a price on your head or being hit takes him over the line - plus
+  `lastKnown` and `heard`, which age and are eventually forgotten.
+- **`behavior.js`** — one state machine for everyone: `wander`, `work`,
+  `suspicious`, `investigate`, `search`, `combat`, `cover`, `flank`, `retreat`,
+  `flee`, `dead`. The chain the game did not have before is the interesting one: an
+  NPC can notice you *without* being ordered to fight, walk over and look, sweep the
+  area for a few seconds, and only then go loud. It writes exactly one thing,
+  `n.ai = { state, moveTo, speed }`, and the movement code carries it out, so this
+  file never has to know how a leg bends. Cover is chosen by finding a solid object
+  whose far side actually breaks the line to the player.
+- **`squad.js`** — lawmen are one posse: a sighting by any of them, once he is sure,
+  becomes everyone's, and the squad hands out roles so three men do not do the same
+  thing - `suppress` (closest man pins you down), `flank` (the next swing wide,
+  alternating sides), `advance`, `hold`, and `withdraw` when enough of them are
+  down. A call to arms also goes out for bodies in the street, civilian ones
+  included, which is the thread the law system will pull on.
+
+Everything is archetype driven and additive: `ARCH.bandit` is on the table with
+`hostile: true` for the road agents of later phases, and a new archetype only needs
+an entry there plus a row in `SENSES`.
+
+**Cost control.** Sight runs on a stagger, hearing is an event list, and the squad
+decides orders a few times a second rather than every frame. `startRound()` clears
+everyone is suspicion, so a reshuffled town has not seen you yet.
+
+---
+
+## Missions
+
+The round loop is the *match* (rounds, score, respawns, the clock); what a round is
+actually about is a mission. `js/missions/` is a small framework that any amount of
+content can be built on:
+
+- **`objectives.js`** — the reusable components. Each is a state machine with the
+  same surface (`setup`, `update`, `marker`, `prompt`, `use`, `snapshot`,
+  `restore`) so missions can mix them freely:
+  `killTargets`, `reachLocation`, `escapeArea`, `surviveDuration`, `protectNpc`,
+  `collectItems`, `interactWith` (talk / steal / search / report, optionally held),
+  `captureTarget` (wound, then walk them down), and the group objectives `all` and
+  `any` — `any` is how a mission branches ("outlast them **or** cut them down").
+- **`mission.js`** — a mission definition: metadata, one or more **stages** (each a
+  list of objectives), `fail` conditions (`playerDead`, `timeLimit`, `npcDead`,
+  `leftArea`, `wanted`, `custom`), a `reward`, and hooks (`onStart`, `onDone`,
+  `onFail`). A stage can branch: `next(m)` returns the stage to move to.
+- **`manager.js`** — the registry and the running missions (one main plus any side
+  jobs), the story flags they set, and the surfaces the rest of the game asks for:
+  the HUD tracker, minimap markers, the contextual interact prompt, and
+  `snapshot()` / `restore()` for saves.
+- **`catalog.js`** — the content, as data: the round's sheriff hunt plus side jobs
+  (an ambush with two ways out, a lost cache, scouting the ridge, walking a witness
+  in, bringing one in alive), each gated by `when` on the round number and flags.
+
+**Adding a mission** is a definition and nothing else:
+
+```js
+Missions.define({
+  id: 'side_example', kind: 'side', name: 'A favour',
+  brief: 'Somebody wants something fetched.',
+  when: () => roundNum >= 3,
+  stages: [{ name: 'Fetch it', objectives: [
+    { type: 'reachLocation', label: 'Get to the marker', x: 40, z: -20 },
+    { type: 'interactWith', label: 'load the wagon', verb: 'LOAD', seconds: 3, x: 40, z: -20 }
+  ]}],
+  fail: [{ type: 'playerDead' }],
+  reward: { cash: 80, flags: { didTheFavour: true } }
+});
+```
+
+Everything else follows: the tracker lists it, the minimap marks it, `E` (and the
+touch pill) drives its interactions, the reward lands in the wallet, the flags are
+saved, and a load puts the running missions back with their counters, targets and
+spawned crates intact.
+
+**Events.** Missions are driven by the bus, so no gameplay file has to know about
+them: `npc:died` (from `shooting.js`) is what a `killTargets` objective listens to,
+and the manager emits `mission:start`, `mission:stage`, `mission:objective`,
+`mission:done`, `mission:failed`, `mission:aborted` and `mission:restored` for
+whatever comes next (the campaign, the newspaper, the audio director).
+
+**One deliberate seam:** the sheriff dying still calls `endRound('outlaw')` from
+`shooting.js`, because ending the round is match business. The mission observes the
+same kill and pays its own reward, so the mission layer adds meaning without
+owning the round.
+
+---
+
 ## Find it fast
 
 | I want to change… | Edit |
@@ -147,6 +364,21 @@ positions where `collide()` is true). That is why grass avoids the buildings.
 | Horse gait | `js/entities/horse.js` (`updateHorse`) |
 | Walking/running animation | `js/entities/locomotion.js` |
 | Weapon stats, shop prices | `js/entities/weapons.js`, `js/game/shop.js` |
+| What a save file stores | `js/core/save-system.js` (`snapshot`, `normalize`, `apply`) |
+| Autosave timing, slots | `js/game/rounds.js` (`Save.autosave()` calls), `js/core/save-system.js` (`SAVE_SLOTS`) |
+| Game states, what freezes the world | `js/core/game-state.js` (`MODE`, `Mode.live`) |
+| Crimes and what they are worth | js/law/law.js (CRIMES, HEAT_LEVELS, RESPONSE) |
+| Witnesses, bribes, intimidation | js/law/witnesses.js |
+| Difficulty levels and what they scale | js/core/difficulty.js |
+| The picker on the title screen and pause menu | js/game/difficulty-ui.js |
+| Cross-system events | `js/core/event-bus.js` (`Bus.on` / `Bus.emit`) |
+| Mission content (what a round is about) | `js/missions/catalog.js` |
+| What an NPC can notice, and how long he remembers it | `js/ai/perception.js` (`SENSES`, `Perceive.noise`) |
+| NPC states, cover, investigation | `js/ai/behavior.js` |
+| Squad roles, orders, reinforcements | `js/ai/squad.js` |
+| Objective behaviour | `js/missions/objectives.js` (`objectiveType`) |
+| Which missions run, markers, prompts | `js/missions/manager.js` (`beginRound`, `pickMain`, `pickSide`) |
+| Rewards, story flags | the mission's `reward` block, read in `js/missions/mission.js` |
 | Blood, impacts, decals | `js/fx/particles.js`, `js/fx/decals.js` |
 | HUD layout | `index.html` markup + `css/hud.css` |
 | Menus and overlays | `index.html` markup + `css/menus.css` |

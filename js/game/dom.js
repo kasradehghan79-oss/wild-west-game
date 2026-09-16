@@ -45,6 +45,27 @@ const pauseEl = document.getElementById('pause');
 const shopEl = document.getElementById('shop');
 const shopItemsEl = document.getElementById('shopItems');
 const shopCashEl = document.getElementById('shopCash');
+// save / load surfaces
+const savesEl = document.getElementById('saves');
+const saveSlotsEl = document.getElementById('saveSlots');
+const savesSubEl = document.getElementById('savesSub');
+const savesCloseEl = document.getElementById('savesClose');
+const continueBtn = document.getElementById('continueBtn');
+const startLoadBtn = document.getElementById('startLoadBtn');
+const pauseSaveBtn = document.getElementById('pauseSaveBtn');
+const pauseLoadBtn = document.getElementById('pauseLoadBtn');
+// mission tracker
+const missionEl = document.getElementById('mission');
+const missionLabelEl = document.getElementById('missionLabel');
+const missionNameEl = document.getElementById('missionName');
+// price on the player's head
+const bountyEl = document.getElementById('bounty');
+const missionListEl = document.getElementById('missionList');
+// difficulty picker
+const diffTitle = document.getElementById('diffTitle');
+const diffPause = document.getElementById('diffPause');
+const diffBlurb = document.getElementById('diffBlurb');
+const diffBlurbPause = document.getElementById('diffBlurbPause');
 const btnContext = document.getElementById('btnContext');
 // label inside the contextual pill (STORE / MOUNT / DISMOUNT)
 const ctxLabel = document.getElementById('ctxLabel');

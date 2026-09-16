@@ -50,9 +50,13 @@ if (isTouch) {
         keys['ShiftLeft'] = d > 38;
       } else if (lookT[t.identifier]) {
         const p = lookT[t.identifier];
-        yaw -= (t.clientX - p.x) * 0.005;
+        const dx = t.clientX - p.x;
+        yaw -= dx * 0.005;
         pitch = clamp(pitch + (t.clientY - p.y) * 0.005, -1.0, 1.15);
+        // remember the last movement so a flick can carry on after the finger lifts
+        lookVel = dx * 0.005;
         lookT[t.identifier] = { x: t.clientX, y: t.clientY };
+        lookX = t.clientX;
       }
     }
   }, { passive: false });
@@ -63,11 +67,55 @@ if (isTouch) {
         stick.style.display = 'none';
         for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft']) keys[k] = false;
       }
-      delete lookT[t.identifier];
+      if (lookT[t.identifier]) {
+        delete lookT[t.identifier];
+        lookHeld = false;
+      }
     }
   };
   cv.addEventListener('touchend', endTouch);
   cv.addEventListener('touchcancel', endTouch);
+
+  /* Turning is the one thing a thumb cannot do properly: the finger can only travel
+     from the right edge to the middle of the screen before it runs out of glass, which
+     caps a single swipe at about 115 degrees - not enough to come about. So a finger
+     held near either edge keeps turning, and a flick keeps turning for a moment after
+     it is lifted. Both are the standard answer on a phone, and without them the camera
+     simply stops at an angle the player cannot explain. */
+  const EDGE_TURN = 4.2;              // radians per second at the very edge (~240 deg/s)
+  let lookVel = 0;                    // last swipe speed, for the flick
+  let lookX = 0, lookHeld = false;
+  function edgeZone() { return Math.min(110, innerWidth * 0.12); }
+  function touchLookInner(dt) {
+    // Look for the look finger *first*. The guard has to come after that, or the very
+    // first frame of a hold returns early, lookHeld is never set, and the edge turn
+    // never starts - which is exactly how this silently did nothing.
+    const zone = edgeZone();
+    let rate = 0, held = false;
+    for (const id in lookT) {
+      const t = lookT[id];
+      if (!t) continue;
+      held = true;
+      const x = t.x;
+      // squared response: barely there at the inner edge of the zone, a fast spin when the
+      // finger is pinned to the glass, so the player can find it without lurching
+      if (x > innerWidth - zone) rate = -Math.pow((x - (innerWidth - zone)) / zone, 1.4);
+      else if (x < zone) rate = Math.pow((zone - x) / zone, 1.4);
+      lookX = x;
+      break;
+    }
+    lookHeld = held;
+    if (rate) yaw += rate * EDGE_TURN * dt;
+    // the flick: it decays fast, so it is a nudge rather than a spin
+    if (!held && Math.abs(lookVel) > 0.0005) {
+      yaw -= lookVel * 6 * dt;
+      lookVel *= Math.pow(0.02, dt);
+      if (Math.abs(lookVel) < 0.001) lookVel = 0;
+    }
+  }
+  // Published on window because this entire layer is scoped by the isTouch block: the
+  // frame loop asks for window.touchLook, and a bare declaration in here is invisible.
+  window.touchLook = touchLookInner;
   // Backgrounding the app can swallow the touchend, which would leave the stick
   // stuck on screen and its identifier claimed forever. Drop everything instead.
   const releaseAllTouch = () => {
@@ -102,6 +150,8 @@ if (isTouch) {
     const action = el && el.dataset ? el.dataset.action : '';
     if (action === 'shop') openShop();
     else if (action === 'mount') toggleMount();
+    else if (action === 'mission') Missions.interact();
+    else if (action === 'bribe') Witnesses.use();
   });
   const btnFs = $('btnFs');
   // WildWestApp is injected by the Android activity before any page script runs

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -26,10 +26,13 @@
 
 <div id="objective"><b id="objTitle"></b><span id="objSub"></span></div>
 
+<div id="mission"><i id="missionLabel">MISSION</i><b id="missionName"></b><div id="missionList"></div></div>
+
 <div id="rightpanel">
   <canvas id="minimap" width="148" height="148"></canvas>
   <div id="wanted"></div>
   <div id="cash">$0</div>
+  <div id="bounty"></div>
 </div>
 
 <div id="vitals">
@@ -72,7 +75,16 @@
     <i>F</i><span>General Store</span>
     <i>Esc</i><span>Pause</span>
   </div>
-  <div class="play" id="startBtn">PLAY</div>
+  <div class="row btns">
+    <div class="play" id="startBtn">PLAY</div>
+    <div class="mbtn" id="continueBtn">CONTINUE</div>
+    <div class="mbtn" id="startLoadBtn">LOAD GAME</div>
+  </div>
+  <div class="diffblock">
+    <div class="difflabel">DIFFICULTY</div>
+    <div class="diffs" id="diffTitle"></div>
+    <div class="diffblurb" id="diffBlurb"></div>
+  </div>
   <div class="credit">Created by Kasra_dn</div>
 </div>
 
@@ -82,8 +94,15 @@
   <div class="row"><label>Volume</label><input id="setVol" type="range" min="0" max="100" value="70"></div>
   <div class="row"><label>Quality</label><input id="setQual" type="range" min="0" max="2" step="1" value="2"></div>
   <div class="row"><label>Vertical look</label><div class="mbtn" id="setInvert" style="flex:1;text-align:center;padding:7px 12px;">NORMAL</div></div>
+  <div class="diffblock">
+    <div class="difflabel">DIFFICULTY</div>
+    <div class="diffs" id="diffPause"></div>
+    <div class="diffblurb" id="diffBlurbPause"></div>
+  </div>
   <div class="btns">
     <div class="mbtn" id="resumeBtn">RESUME</div>
+    <div class="mbtn" id="pauseSaveBtn">SAVE GAME</div>
+    <div class="mbtn" id="pauseLoadBtn">LOAD GAME</div>
     <div class="mbtn" id="restartBtn">RESTART MATCH</div>
   </div>
   <small>Quality: 0 = fastest, 2 = best shadows &amp; particles</small>
@@ -102,6 +121,17 @@
     <div class="sub">CASH <b id="shopCash">$0</b> &middot; upgrades last the whole match</div>
     <div class="items" id="shopItems"></div>
     <div class="btns"><div class="mbtn" id="shopClose">LEAVE</div></div>
+  </div>
+</div>
+
+<!-- Sits last in the document on purpose: every overlay shares one z-index, so
+     DOM order is what puts the slot picker above the pause menu. -->
+<div class="overlay" id="saves">
+  <div class="panel">
+    <h2>SAVE / LOAD</h2>
+    <div class="sub" id="savesSub">Autosave writes at every round boundary &middot; three manual slots</div>
+    <div class="items" id="saveSlots"></div>
+    <div class="btns"><div class="mbtn" id="savesClose">BACK</div></div>
   </div>
 </div>
 
@@ -150,50 +180,66 @@
 
 <!-- three.js r128, vendored next to the game so it runs with no network at all
      (required for the Android build, and nicer for local play too). -->
-<script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/three.min.js"></script>
 
 <!-- Game source. These are classic scripts sharing one global scope, so the order
      below is load bearing: each file may use anything declared above it. The
      number is the load index, described per file in README.md. -->
+
   <script src="js/core/utils.js"></script>              <!-- 01 -->
-  <script src="js/core/settings.js"></script>           <!-- 02 -->
-  <script src="js/core/engine.js"></script>             <!-- 03 -->
-  <script src="js/world/sky.js"></script>               <!-- 04 -->
-  <script src="js/core/lights.js"></script>             <!-- 05 -->
-  <script src="js/world/cycle.js"></script>             <!-- 06 -->
-  <script src="js/core/materials.js"></script>          <!-- 07 -->
-  <script src="js/entities/weapon-models.js"></script>  <!-- 08 -->
-  <script src="js/world/textures.js"></script>          <!-- 09 -->
-  <script src="js/world/terrain.js"></script>           <!-- 10 -->
-  <script src="js/world/ground.js"></script>            <!-- 11 -->
-  <script src="js/world/lakes.js"></script>             <!-- 12 -->
-  <script src="js/world/mountains.js"></script>         <!-- 13 -->
-  <script src="js/core/collision.js"></script>          <!-- 14 -->
-  <script src="js/world/buildings.js"></script>         <!-- 15 -->
-  <script src="js/world/nature.js"></script>            <!-- 16 -->
-  <script src="js/world/props.js"></script>             <!-- 17 -->
-  <script src="js/entities/human.js"></script>          <!-- 18 -->
-  <script src="js/entities/archetypes.js"></script>     <!-- 19 -->
-  <script src="js/entities/npcs.js"></script>           <!-- 20 -->
-  <script src="js/entities/locomotion.js"></script>     <!-- 21 -->
-  <script src="js/entities/horse.js"></script>          <!-- 22 -->
-  <script src="js/world/campfire.js"></script>          <!-- 23 -->
-  <script src="js/fx/particles.js"></script>            <!-- 24 -->
-  <script src="js/fx/casings.js"></script>              <!-- 25 -->
-  <script src="js/core/audio.js"></script>              <!-- 26 -->
-  <script src="js/entities/weapons.js"></script>        <!-- 27 -->
-  <script src="js/game/dom.js"></script>                <!-- 28 -->
-  <script src="js/game/state.js"></script>              <!-- 29 -->
-  <script src="js/game/shop.js"></script>               <!-- 30 -->
-  <script src="js/game/rounds.js"></script>             <!-- 31 -->
-  <script src="js/fx/decals.js"></script>               <!-- 32 -->
-  <script src="js/entities/shooting.js"></script>       <!-- 33 -->
-  <script src="js/core/input.js"></script>              <!-- 34 -->
-  <script src="js/core/touch.js"></script>              <!-- 35 -->
-  <script src="js/entities/mount.js"></script>          <!-- 36 -->
-  <script src="js/world/store.js"></script>             <!-- 37 -->
-  <script src="js/render/post.js"></script>             <!-- 38 -->
-  <script src="js/game/loop.js"></script>               <!-- 39 -->
+  <script src="js/core/event-bus.js"></script>          <!-- 02 -->
+  <script src="js/core/settings.js"></script>           <!-- 03 -->
+  <script src="js/core/difficulty.js"></script>         <!-- 04 -->
+  <script src="js/core/engine.js"></script>             <!-- 05 -->
+  <script src="js/world/sky.js"></script>               <!-- 06 -->
+  <script src="js/core/lights.js"></script>             <!-- 07 -->
+  <script src="js/world/cycle.js"></script>             <!-- 08 -->
+  <script src="js/core/materials.js"></script>          <!-- 09 -->
+  <script src="js/entities/weapon-models.js"></script>  <!-- 10 -->
+  <script src="js/world/textures.js"></script>          <!-- 11 -->
+  <script src="js/world/terrain.js"></script>           <!-- 12 -->
+  <script src="js/world/ground.js"></script>            <!-- 13 -->
+  <script src="js/world/lakes.js"></script>             <!-- 14 -->
+  <script src="js/world/mountains.js"></script>         <!-- 15 -->
+  <script src="js/core/collision.js"></script>          <!-- 16 -->
+  <script src="js/world/buildings.js"></script>         <!-- 17 -->
+  <script src="js/world/nature.js"></script>            <!-- 18 -->
+  <script src="js/world/props.js"></script>             <!-- 19 -->
+  <script src="js/entities/human.js"></script>          <!-- 20 -->
+  <script src="js/entities/archetypes.js"></script>     <!-- 21 -->
+  <script src="js/ai/perception.js"></script>           <!-- 22 -->
+  <script src="js/ai/squad.js"></script>                <!-- 23 -->
+  <script src="js/ai/behavior.js"></script>             <!-- 24 -->
+  <script src="js/law/law.js"></script>
+  <script src="js/law/witnesses.js"></script>
+  <script src="js/entities/npcs.js"></script>           <!-- 27 -->
+  <script src="js/entities/locomotion.js"></script>     <!-- 28 -->
+  <script src="js/entities/horse.js"></script>          <!-- 29 -->
+  <script src="js/world/campfire.js"></script>          <!-- 30 -->
+  <script src="js/fx/particles.js"></script>            <!-- 31 -->
+  <script src="js/fx/casings.js"></script>              <!-- 32 -->
+  <script src="js/core/audio.js"></script>              <!-- 33 -->
+  <script src="js/entities/weapons.js"></script>        <!-- 34 -->
+  <script src="js/game/dom.js"></script>                <!-- 35 -->
+  <script src="js/game/state.js"></script>              <!-- 36 -->
+  <script src="js/core/game-state.js"></script>         <!-- 37 -->
+  <script src="js/game/shop.js"></script>               <!-- 38 -->
+  <script src="js/game/rounds.js"></script>             <!-- 39 -->
+  <script src="js/core/save-system.js"></script>        <!-- 40 -->
+  <script src="js/fx/decals.js"></script>               <!-- 41 -->
+  <script src="js/entities/shooting.js"></script>       <!-- 42 -->
+  <script src="js/core/input.js"></script>              <!-- 43 -->
+  <script src="js/core/touch.js"></script>              <!-- 44 -->
+  <script src="js/entities/mount.js"></script>          <!-- 45 -->
+  <script src="js/world/store.js"></script>             <!-- 46 -->
+  <script src="js/render/post.js"></script>             <!-- 47 -->
+  <script src="js/missions/objectives.js"></script>     <!-- 48 -->
+  <script src="js/missions/mission.js"></script>        <!-- 49 -->
+  <script src="js/missions/manager.js"></script>        <!-- 50 -->
+  <script src="js/missions/catalog.js"></script>        <!-- 51 -->
+  <script src="js/game/difficulty-ui.js"></script>
+  <script src="js/game/save-ui.js"></script>            <!-- 53 -->
+  <script src="js/game/loop.js"></script>               <!-- 54 -->
 
 </body>
 </html>

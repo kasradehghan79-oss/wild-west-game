@@ -14,6 +14,10 @@ ARCH.sheriff = { hp: 6, speed: 1.75, engage: 34, range: 19, dmgMin: 0.8, dmgMax:
 ARCH.rifleman = { hp: 3, speed: 1.15, engage: 54, range: 34, dmgMin: 0.9, dmgMax: 1.5, accBase: 0.38, accAim: 0.24, cdMin: 1.6, cdMax: 2.7, bounty: 20, name: 'RIFLEMAN' };
 ARCH.shotgunner = { hp: 5, speed: 1.5, engage: 19, range: 8, dmgMin: 1.2, dmgMax: 2.0, accBase: 0.5, accAim: 0.33, cdMin: 1.4, cdMax: 2.3, bounty: 26, name: 'SHOTGUNNER' };
 ARCH.civil = { hp: 2, speed: 1.7, engage: 0, range: 0, dmgMin: 0, dmgMax: 0, accBase: 0, accAim: 0, cdMin: 9, cdMax: 9, bounty: 0, name: 'CIVILIAN' };
+// A bandit is on the table for the camps and road agents of later phases: he fights
+// on sight rather than needing a reason, which is what makes him a different animal.
+ARCH.hunter = { hp: 4, speed: 1.9, engage: 46, range: 26, dmgMin: 1.0, dmgMax: 1.6, accBase: 0.42, accAim: 0.26, cdMin: 0.7, cdMax: 1.4, bounty: 0, name: 'BOUNTY HUNTER' };
+ARCH.bandit = { hp: 3, speed: 1.6, engage: 30, range: 12, dmgMin: 0.7, dmgMax: 1.2, accBase: 0.34, accAim: 0.2, cdMin: 0.9, cdMax: 1.8, bounty: 28, name: 'BANDIT', hostile: true };
 
 const player = makeHuman(0xe0452c, 0x35509e, 0x8a5a2c, false, false, 'civil');
 player.isPlayer = true;

@@ -390,6 +390,153 @@ def build_apk(root: Path, app: Path, build_dir: Path, dist_dir: Path, args) -> P
     return apk
 
 
+def verify_apk(root: Path, apk: Path, sdk_arg: str | None, java_arg: str | None) -> int:
+    """Check a built APK against the project it claims to contain.
+
+    Three questions, in order of how much they matter:
+      1. are the web assets inside the APK byte for byte the ones in the project?
+         (this is the one that catches "I changed the game and forgot to rebuild")
+      2. is it signed at all, and with the debug key it was built with?
+      3. is it aligned, so the installer does not have to spool it first?
+    Signature and alignment need build tools; asset parity needs nothing but
+    Python, so a machine without the SDK still gets the important half.
+    """
+    import hashlib
+    import zipfile
+
+    head("Verifying the APK")
+    if not apk.is_file():
+        die(f"no APK at {apk} - build it first")
+    say(f"apk      {apk}")
+    say(f"size     {apk.stat().st_size / 1024:.0f} KB")
+
+    failures = []
+
+    # ---- 1. asset parity -------------------------------------------------
+    with zipfile.ZipFile(apk) as z:
+        names = z.namelist()
+        assets = [n for n in names if n.startswith("assets/www/") and not n.endswith("/")]
+        if not assets:
+            failures.append("the APK contains no assets/www/ payload at all")
+        missing = []
+        differing = []
+        for name in assets:
+            rel = name[len("assets/www/"):]
+            disk = root / rel
+            if not disk.is_file():
+                missing.append(rel)
+                continue
+            apk_hash = hashlib.sha256(z.read(name)).hexdigest()
+            disk_hash = hashlib.sha256(disk.read_bytes()).hexdigest()
+            if apk_hash != disk_hash:
+                differing.append(rel)
+        say(f"assets   {len(assets)} compared, {len(missing)} missing, {len(differing)} different")
+        for rel in (missing + differing)[:12]:
+            failures.append(f"asset out of date inside the APK: {rel}")
+        # every project file has to be in there too, not just the other way round
+        expected = [p for p in (root / "index.html", root / "css", root / "js")
+                    if p.exists()]
+        project_files = []
+        for p in expected:
+            if p.is_file():
+                project_files.append(p)
+            else:
+                project_files += [f for f in p.rglob("*") if f.is_file()]
+        in_apk = set(assets)
+        absent = []
+        for f in project_files:
+            rel = f.relative_to(root).as_posix()
+            if "assets/www/" + rel not in in_apk:
+                absent.append(rel)
+        for rel in absent[:12]:
+            failures.append(f"the APK is missing project file: {rel}")
+        say(f"coverage {len(project_files)} project files, "
+            f"{len(absent)} missing from the APK")
+
+        # ---- manifest facts ---------------------------------------------
+        try:
+            manifest = z.read("AndroidManifest.xml")
+            say(f"manifest {len(manifest)} bytes (binary XML, checked below when aapt2 is available)")
+        except KeyError:
+            failures.append("AndroidManifest.xml is missing")
+
+    # ---- 2/3. signature and alignment ------------------------------------
+    try:
+        sdk = find_sdk(sdk_arg)
+        bt, _ = find_toolchain(sdk)
+    except SystemExit:
+        bt = None
+    if bt is None:
+        warn("no Android SDK found, skipping the signature and alignment checks")
+        say("skipped  apksigner, zipalign (install build-tools to cover these)")
+    else:
+        java_home = None
+        try:
+            java_home = find_java_home(java_arg)
+        except SystemExit:
+            warn("apksigner needs a JDK and none was found")
+        apksigner = tool_path(bt, "apksigner")
+        zipalign = tool_path(bt, "zipalign")
+        env = dict(os.environ)
+        if java_home:
+            env["JAVA_HOME"] = str(java_home)
+            env["PATH"] = str(Path(java_home) / "bin") + os.pathsep + env.get("PATH", "")
+        if apksigner:
+            proc = subprocess.run(launch(apksigner, "verify", "--print-certs", apk),
+                                  capture_output=True, text=True, errors="replace", env=env)
+            if proc.returncode == 0:
+                digest = ""
+                for line in (proc.stdout or "").splitlines():
+                    if "SHA-256" in line:
+                        digest = line.split(":", 1)[1].strip()[:16] + "..."
+                say(f"signed   yes ({digest or 'certificate present'})")
+            else:
+                failures.append("apksigner verify failed")
+                say("signed   NO")
+        else:
+            warn("apksigner not found in build-tools")
+        if zipalign:
+            proc = subprocess.run([str(zipalign), "-c", "-v", "4", str(apk)],
+                                  capture_output=True, text=True, errors="replace", env=env)
+            say(f"aligned  {'yes' if proc.returncode == 0 else 'NO'}")
+            if proc.returncode != 0:
+                failures.append("zipalign -c failed")
+        else:
+            warn("zipalign not found in build-tools")
+
+        # package name, minSdk and permissions, straight from the manifest
+        aapt2 = tool_path(bt, "aapt2")
+        if aapt2:
+            proc = subprocess.run(launch(aapt2, "dump", "badging", apk),
+                                  capture_output=True, text=True, errors="replace", env=env)
+            if proc.returncode == 0:
+                text = proc.stdout or ""
+                pkg = next((l for l in text.splitlines() if l.startswith("package:")), "")
+                sdk = next((l for l in text.splitlines() if l.startswith("sdkVersion:")), "")
+                perms = [l for l in text.splitlines() if "uses-permission" in l]
+                say(f"badging  {pkg.strip()[:70]}")
+                say(f"         {sdk.strip()}, {len(perms)} permissions requested")
+                if "com.kasradn.wildwest" not in pkg:
+                    failures.append("unexpected package name in the manifest")
+                if perms:
+                    failures.append(f"the app asks for permissions it should not need: {perms}")
+                if "sdkVersion:'24'" not in text.replace('"', "'"):
+                    warn("minSdk is not 24 - check that this is intended")
+            else:
+                warn("aapt2 dump badging failed")
+        else:
+            warn("aapt2 not found, skipping the manifest check")
+
+    if failures:
+        print("", flush=True)
+        for f in failures:
+            print(f"   FAIL: {f}", flush=True)
+        die(f"{len(failures)} check(s) failed")
+    head("APK verified")
+    say("assets inside the APK match the project exactly")
+    return 0
+
+
 def main() -> int:
     global VERBOSE
     here = Path(__file__).resolve().parent
@@ -406,6 +553,8 @@ def main() -> int:
     parser.add_argument("--version-code", type=int, default=0, help="override android:versionCode")
     parser.add_argument("--version-name", default="", help="override android:versionName")
     parser.add_argument("--check", action="store_true", help="only check that the toolchain is present")
+    parser.add_argument("--verify", action="store_true",
+                        help="check a built APK: asset parity, signature, alignment, manifest")
     parser.add_argument("-v", "--verbose", action="store_true", help="print every command and its output")
     parser.add_argument("--release", action="store_true", help="sign with --keystore instead of the debug key")
     parser.add_argument("--keystore", help="keystore file (implies --release)")
@@ -431,6 +580,10 @@ def main() -> int:
         say(f"tools    {bt}")
         say(f"platform {android_jar}")
         return 0
+
+    if args.verify:
+        return verify_apk(root, Path(args.out) if args.out else dist_dir / "The Wild West.apk",
+                          args.sdk, args.java_home)
 
     apk = build_apk(root, app, build_dir, dist_dir, args)
     if args.out:

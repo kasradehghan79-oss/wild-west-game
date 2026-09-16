@@ -5,5 +5,10 @@ android/build/
 # playwright / tooling scratch
 .playwright-mcp/
 
+# test runner: dependencies, reports and failure artifacts
+node_modules/
+tests/.report/
+test-results/
+
 # machine specific
 *.log

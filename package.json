@@ -1,0 +1,23 @@
+{
+  "name": "the-wild-west",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Third-person wild west shooter in three.js. Runs in the browser with no build step and ships as an offline Android APK.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:desktop": "playwright test --project=desktop",
+    "test:phone": "playwright test --project=phone",
+    "test:apk": "playwright test apk",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report tests/.report",
+    "serve": "node tests/support/serve.mjs 8080"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

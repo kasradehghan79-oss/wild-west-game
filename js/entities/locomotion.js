@@ -198,6 +198,36 @@ function localSpeed(n, sp) {
 function updateCivil(n, dt, dx, dz, pd) {
   const t = clock.elapsedTime;
   const panic = wanted > 0 && pd < 30;
+  // A witness is running for the law: everything else can wait, he has somewhere to
+  // be and he is not stopping to chat.
+  if (n.reportTo) {
+    const sp = ARCH.civil.speed * 2.4;
+    const d = stepTowards(n, n.reportTo.x, n.reportTo.z, sp, dt);
+    faceMove(n, dt, 9);
+    walkCycle(n, localSpeed(n, sp), dt);
+    n.armL.rotation.x = lerp(n.armL.rotation.x, -2.3, Math.min(1, dt * 6));
+    n.armR.rotation.x = lerp(n.armR.rotation.x, -2.3, Math.min(1, dt * 6));
+    if (d < 5) n.reportTo = null;
+    return;
+  }
+  // An escort objective can put a civilian on the player's heels. It outranks the
+  // panic response - a witness running for the hills is no use to anybody - but the
+  // panic still shows, as a run rather than a stroll.
+  if (n.followPlayer) {
+    const d = Math.hypot(dx, dz);
+    if (d > 3.2) {
+      const sp = ARCH.civil.speed * (panic ? 2.7 : (d > 14 ? 2.0 : 1.15));
+      stepTowards(n, player.g.position.x, player.g.position.z, sp, dt);
+      faceMove(n, dt, 8);
+      walkCycle(n, localSpeed(n, sp), dt);
+      n.armL.rotation.x = lerp(n.armL.rotation.x, panic ? -2.2 : -0.6, Math.min(1, dt * 5));
+      n.armR.rotation.x = lerp(n.armR.rotation.x, panic ? -2.2 : -0.6, Math.min(1, dt * 5));
+    } else {
+      idlePose(n, dt, t);
+      faceMove(n, dt, 3);
+    }
+    return;
+  }
   if (panic) {
     n.retreatT = 0.4;
   }
@@ -260,12 +290,46 @@ function updateNPC(n, dt) {
   const dx = player.g.position.x - n.g.position.x;
   const dz = player.g.position.z - n.g.position.z;
   const pd = Math.hypot(dx, dz);
+  // Perception and the behaviour state machine run for everyone, every frame: what
+  // an NPC is doing is decided there, and the movement and shooting below carry it
+  // out. Civilians are still handled by their own brain.
+  Perceive.update(n, dt);
+  Behavior.update(n, dt);
+  const aiState = n.ai ? n.ai.state : 'wander';
   if (n.civil) { updateCivil(n, dt, dx, dz, pd); return; }
 
   const A = ARCH[n.archetype];
-  const engage = A.engage + wanted * 4;
-  const combat = !playerDead && wanted > 0 && pd <= engage;
-  const chase = !playerDead && wanted > 0;
+  const engage = Difficulty.engage(A.engage + wanted * 4);
+  const hot = aiState === 'combat' || aiState === 'cover' || aiState === 'flank' || aiState === 'retreat';
+  const combat = !playerDead && pd <= (hot ? engage * 1.6 : engage) && (hot || wanted > 0);
+  const chase = !playerDead && (wanted > 0 || hot);
+
+  // Someone who has noticed something and is walking over to look: no gunplay, but
+  // the head keeps moving. This is the state the game did not have before - an NPC
+  // reacting to you without the wanted level doing all the work.
+  if (!combat && (aiState === 'investigate' || aiState === 'suspicious' || aiState === 'search')) {
+    const mv = n.ai.moveTo;
+    let d = 99;
+    if (mv) {
+      d = stepTowards(n, mv.x, mv.z, n.ai.speed || A.speed, dt);
+      if (d > 0.5) { faceMove(n, dt, 5); walkCycle(n, localSpeed(n, n.ai.speed || A.speed) * 0.9, dt); }
+      else { idlePose(n, dt, clock.elapsedTime); }
+    } else {
+      idlePose(n, dt, clock.elapsedTime);
+    }
+    // while standing still, scan: the head sweeps the area he came to check
+    if (d < 1.5) {
+      n.scanA = (n.scanA || 0) + dt;
+      n.head.rotation.y = Math.sin(n.scanA * 1.3) * 0.9;
+      n.g.rotation.y += Math.sin(n.scanA * 0.7) * dt * 1.4;
+    } else {
+      n.head.rotation.y = lerp(n.head.rotation.y, 0, Math.min(1, dt * 3));
+    }
+    n.gunDrawn = false;
+    n.gun.visible = true;
+    n.recoil = Math.max(0, n.recoil - dt * 6);
+    return;
+  }
 
   if (combat) {
     if (!n.gunDrawn) { n.gunDrawn = true; n.drawT = n.isSheriff ? 0.12 : rnd(0.3, 0.6); }
@@ -274,6 +338,21 @@ function updateNPC(n, dt) {
     n.target = null;
     const toPl = Math.atan2(dx, dz);                       // heading toward the player
     n.g.rotation.y = lerpAngle(n.g.rotation.y, toPl, Math.min(1, dt * 8));
+    // Squad and cover orders move him: break for cover, swing wide to flank, or run
+    // for it when the squad has had enough. Fire discipline is unchanged - he still
+    // shoots on the way, which is what makes a retreat read as a fighting one.
+    const ordered = aiState === 'cover' || aiState === 'flank' || aiState === 'retreat' || aiState === 'combat';
+    if (ordered && n.ai.moveTo && n.ai.state !== 'combat') {
+      const sp = n.ai.speed || A.speed;
+      const d = stepTowards(n, n.ai.moveTo.x, n.ai.moveTo.z, sp, dt);
+      if (d > 0.6) {
+        walkCycle(n, localSpeed(n, sp) * 0.95, dt);
+        n.g.rotation.y = lerpAngle(n.g.rotation.y, toPl, Math.min(1, dt * 5));
+      }
+      if (n.drawT <= 0) faceAndShoot(n, dt, pd, 1);
+      if (n.ai.state === 'cover' && d <= 0.7) n.coverT = Math.max(n.coverT || 0, 1.2);
+      return;
+    }
     if (n.retreatT > 0) n.retreatT -= dt;
     else if (n.hp <= 1 && n.archetype !== 'sheriff' && Math.random() < dt * 0.35) n.retreatT = rnd(1.2, 2.4);
 
@@ -339,7 +418,9 @@ function updateNPC(n, dt) {
       n.gun.position.z = lerp(n.gun.position.z, n.gunAim.pz - n.recoil, Math.min(1, dt * 10));
       if (n.shootT === undefined) n.shootT = rnd(0.6, 1.4);
       n.shootT -= dt;
-      if (n.shootT <= 0) {
+      // the chase has to obey the same rule as the standoff: guns up, no firing until the
+      // county has decided you are worth shooting at
+      if (n.shootT <= 0 && (typeof Law !== 'object' || Law.mayOpenFire(n))) {
         n.shootT = rnd(A.cdMin, A.cdMax) * 1.5;
         fireNpc(n, pd, 0.55);
       }

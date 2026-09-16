@@ -14,7 +14,19 @@ function endRound(who, reason) {
   if (who === 'outlaw') { outlawPts++; survivedRounds++; cash += 25; }
   else lawPts++;
   Sound.stinger(who === 'outlaw');
+  Mode.set(MODE.OVER);
+  // no side job survives the end of a round: the next round brings its own
+  Missions.abortAll('round ended');
+  Bus.emit('round:end', { who, reason, outlaws: outlawPts, law: lawPts, round: roundNum });
+  // the round boundary is the checkpoint: score, cash and upgrades are all final
+  // by this line, and the player is standing somewhere safe
+  Save.autosave();
   const matchOver = outlawPts >= WIN_PTS || lawPts >= WIN_PTS;
+  // Release the pointer before showing the card. While the pointer is locked every
+  // mouse event is delivered to the canvas, so a player on desktop could not click
+  // "tap to continue" at all until they thought to press Esc first. The store and
+  // the pause menu already do this for their own overlays.
+  if (document.pointerLockElement) document.exitPointerLock();
   if (reason === 'dead') {
     // the death card is already on screen: write the result onto it instead of
     // stacking a second overlay on top and overprinting the two
@@ -46,7 +58,8 @@ function startRound() {
   matchState = 'play';
   reEl.classList.remove('show');
   deadEl.classList.remove('show');
-  paused = false;
+  // the one author of the frozen flags: this also clears paused and shopOpen
+  Mode.set(MODE.PLAYING);
   pauseEl.classList.remove('show');
   roundT = ROUND_TIME;
   playerDead = false;
@@ -77,22 +90,38 @@ function startRound() {
   rifleModel.position.set(0, -0.3, 0.12);
   drawWeapons();
   clearFight();
+  // The posse is exactly what this difficulty says it is: rebuilt here so a change of level
+  // takes effect from the next round, and so a round never starts short-handed.
+  spawnGarrison();
   // every round the whole town is reshuffled, so the sheriff has to be hunted down again
   scatterNpcs();
   sheriffRevealed = false;
   npcs.forEach(n => {
     n.dead = false; n.fall = 0;
     n.deathTwist = undefined; n.deathRoll = undefined; n.deathArm = undefined;
-    n.hp = n.archetype === 'sheriff' ? ARCH.sheriff.hp + Math.min(5, roundNum - 1) : ARCH[n.archetype].hp + Math.floor((roundNum - 1) / 2);
+    n.hp = Difficulty.foeHp(n.archetype === 'sheriff' ? ARCH.sheriff.hp + Math.min(5, roundNum - 1) : ARCH[n.archetype].hp + Math.floor((roundNum - 1) / 2));
     n.g.position.set(n.spawn.x, n.spawn.y, n.spawn.z);
     n.g.rotation.set(0, n.spawn.rot, 0);
     resetHumanAnim(n);
     n.gun.visible = !n.civil;
   });
   pickups.forEach(p => { p.g.visible = true; });
-  showObjective('FIND AND KILL THE SHERIFF',
-    'Bounty $' + ARCH.sheriff.bounty + ' \u00b7 he is hiding in the posse \u2014 nobody knows where', 4600);
+  // A reshuffled town is a town that has not seen you yet: without this, lawmen kept
+  // last round's suspicion and opened fire the moment a round began.
+  if (typeof Perceive === 'object') {
+    npcs.forEach(n => { Perceive.forget(n); n.hitT = 0; n.ai = null; n.searchT = 0; n.coverT = 0; n.cover = null; n.squadRole = 'advance'; });
+    if (typeof Squads === 'object') Squads.squads.forEach(sq => { sq.contact = null; sq.order = 'hold'; sq.orderT = 0; });
+  }
+  // The round's objectives, banner and rewards belong to the mission layer now:
+  // rounds.js keeps the match skeleton (rounds, score, respawns, the clock) and
+  // Missions decides what this round is actually about.
+  Missions.beginRound(roundNum);
+  // the town forgets who was chasing whom, but the record against you stands
+  if (typeof Witnesses === 'object') Witnesses.clear();
+  // the manhunt starts over, the bounty on the books does not
+  if (typeof Law === 'object') Law.beginRound();
   feed('Round ' + roundNum + ' \u2014 the sheriff could be anywhere in town', '');
+  Bus.emit('round:start', { round: roundNum, outlaws: outlawPts, law: lawPts });
 }
 function nextAfterEnd() {
   if (matchState === 'intro') { startMatch(); return; }
@@ -109,6 +138,7 @@ function nextAfterEnd() {
     roundNum = Math.min(MAX_ROUNDS, roundNum + 1);
   }
   startRound();
+  Save.autosave();
 }
 function startMatch() {
   Sound.resume();
@@ -117,6 +147,8 @@ function startMatch() {
   startEl.classList.remove('show');
   if (!isTouch) requestLock();
   startRound();
+  // a fresh run gets a checkpoint straight away, so CONTINUE always has one
+  Save.autosave();
 }
 reEl.addEventListener('click', e => { e.stopPropagation(); nextAfterEnd(); });
 

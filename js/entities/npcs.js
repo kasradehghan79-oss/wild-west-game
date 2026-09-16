@@ -1,7 +1,7 @@
 /* ==========================================================================
    The Wild West - js/entities/npcs.js
    NPC population, spawn and patrol placement, and their shooting behaviour.
-   Provides:  npcs, addLawman, addCivilian, scatterNpcs, spawnReinforcement
+   Provides:  npcs, addLawman, addCivilian, scatterNpcs, spawnGarrison, spawnReinforcement (kept for the camps of later phases; nothing in the law path uses it)
    Expects:   ARCH, makeHuman, blocks, collide, FX, Sound (declared in files loaded above)
    Classic script sharing one global scope with its siblings, so the order
    in index.html is load bearing. See README.md for the whole layout.
@@ -24,18 +24,33 @@ function freeSpot(x, z, r, tries) {
   }
   return { x, z };
 }
+// Men who arrived because of a wanted level, rather than the town's own posse. They
+// are cleared at the start of a round: without this the streets fill up with every
+// man the law ever sent, until the cap stops it answering at all.
+function clearExtras() {
+  for (let i = npcs.length - 1; i >= 0; i--) {
+    const n = npcs[i];
+    if (!n.extra) continue;
+    if (typeof Squads === 'object') Squads.leave(n);
+    if (n.g && n.g.parent) n.g.parent.remove(n.g);
+    npcs.splice(i, 1);
+  }
+}
 function addLawman(archetype, x, z) {
   const shirt = pick(lawShirts), hat = archetype === 'rifleman' ? pick(rifleHats) : pick(lawHats);
   const n = makeHuman(shirt, 0x475372, hat, true, archetype === 'sheriff', archetype);
   const p = freeSpot(x, z, 3);
   n.g.position.set(p.x, heightAt(p.x, p.z), p.z);
   n.g.rotation.y = rnd(0, TAU);
-  n.hp = ARCH[archetype].hp;
+  n.hp = Difficulty.foeHp(ARCH[archetype].hp);
   n.isSheriff = archetype === 'sheriff';
   n.spawn = { x: p.x, y: n.g.position.y, z: p.z, rot: n.g.rotation.y };
   n.gun.visible = true;
   if (n.badge) n.badge.visible = false;
   npcs.push(n);
+  // lawmen fight as one posse, so a sighting by any of them is a sighting by all of
+  // them and the squad can hand out roles (see js/ai/squad.js)
+  Squads.join(n, 'posse', 'advance');
   return n;
 }
 function addCivilian(x, z) {
@@ -43,17 +58,37 @@ function addCivilian(x, z) {
   const p = freeSpot(x, z, 6);
   n.g.position.set(p.x, heightAt(p.x, p.z), p.z);
   n.g.rotation.y = rnd(0, TAU);
-  n.hp = ARCH.civil.hp;
+  n.hp = Difficulty.foeHp(ARCH.civil.hp);
   n.gun.visible = false;
   n.spawn = { x: p.x, y: n.g.position.y, z: p.z, rot: n.g.rotation.y };
   npcs.push(n);
   return n;
 }
-addLawman('sheriff', -2, -8);
-for (let i = 0; i < 5; i++) {
-  const a = rnd(0, TAU), r = rnd(30, 62);
-  addLawman('deputy', Math.cos(a) * r, Math.sin(a) * r);
+// Fixed posts on the roads into town. The posse always comes in from the same places, so a
+// player can learn where the law enters from, and nobody ever materialises beside them.
+const LAW_POSTS = [
+  [0, -44], [0, 44], [-44, 0], [44, 0],
+  [30, -30], [-30, -30], [30, 30], [-30, 30],
+  [0, -60], [0, 60], [-60, 0], [60, 0]
+];
+// The whole posse for the chosen difficulty: one sheriff plus a fixed list of men. This is
+// the only place lawmen are ever created - nothing spawns them mid round.
+function spawnGarrison() {
+  for (let i = npcs.length - 1; i >= 0; i--) {
+    const n = npcs[i];
+    if (n.civil) continue;
+    if (typeof Squads === 'object') Squads.leave(n);
+    if (n.g && n.g.parent) n.g.parent.remove(n.g);
+    npcs.splice(i, 1);
+  }
+  addLawman('sheriff', -2, -8);
+  Difficulty.garrisonMix().forEach((arch, i) => {
+    const post = LAW_POSTS[i % LAW_POSTS.length];
+    addLawman(arch, post[0], post[1]);
+  });
+  return npcs.filter(n => !n.civil).length;
 }
+spawnGarrison();
 for (let i = 0; i < 5; i++) {
   const a = rnd(0, TAU), r = rnd(7, 22);
   addCivilian(Math.cos(a) * r, Math.sin(a) * r);
@@ -92,6 +127,9 @@ function spawnReinforcement(archetype) {
   const p = freeSpot(clamp(px, -135, 135), clamp(pz, -135, 135), 5, 40);
   const n = addLawman(archetype, p.x, p.z);
   n.reactT = 1.4;
+  // marked so the start of the next round can send them home: without this the town
+  // grows by every man the law ever sent, until the cap stops it answering at all
+  n.extra = true;
   return n;
 }
 
@@ -155,8 +193,9 @@ function fireNpc(n, pd, hitMult) {
   const from = new THREE.Vector3(n.g.position.x + fwd.x * 0.6, n.g.position.y + 1.42, n.g.position.z + fwd.z * 0.6);
   let to = new THREE.Vector3(player.g.position.x, player.g.position.y + 1.3, player.g.position.z);
   const baseChance = aiming ? A.accAim : A.accBase;
-  const hit = Math.random() < baseChance * Math.max(0.3, 1 - pd / 40) * hitMult;
-  let dmg = hit ? rnd(A.dmgMin, A.dmgMax) * (n.archetype === 'sheriff' ? 1 : 1) : 0;
+  // the roll is a miss chance: difficulty scales it, and the multiplier inverts it
+  const hit = Math.random() < Difficulty.foeMiss(baseChance) * Math.max(0.3, 1 - pd / 40) * hitMult * (1 / Difficulty.foeMissMult());
+  let dmg = hit ? Difficulty.foeDmg(rnd(A.dmgMin, A.dmgMax)) : 0;
   if (!hit) to.add(new THREE.Vector3(rnd(-1, 1), rnd(-0.4, 1), rnd(-1, 1)).multiplyScalar(2.4));
   losDir.copy(to).sub(from);
   const dist = losDir.length();
@@ -206,11 +245,15 @@ function faceAndShoot(n, dt, pd, mult) {
   n.g.rotation.z = lerp(n.g.rotation.z, 0, Math.min(1, dt * 4));
   n.head.rotation.y = lerpAngle(n.head.rotation.y, 0, Math.min(1, dt * 4));
   n.head.rotation.x = lerp(n.head.rotation.x, 0, Math.min(1, dt * 4));
-  if (n.reactT <= 0) {
+  // Guns up, aimed, and not firing: at the lower wanted levels the law confronts the player
+  // rather than shooting them, which is what the response table has always claimed. Being
+  // shot at changes that immediately - self defence needs no permission.
+  const mayFire = (typeof Law === 'object') ? Law.mayOpenFire(n) : wanted >= 3;
+  if (n.reactT <= 0 && mayFire) {
     if (n.shootT === undefined) n.shootT = rnd(0.5, 1.2);
     n.shootT -= dt;
     if (n.shootT <= 0) {
-      n.shootT = rnd(A.cdMin, A.cdMax) * (n.isSheriff ? 0.85 : 1) * Math.max(0.55, 1 - wanted * 0.08);
+      n.shootT = Difficulty.fireRate(rnd(A.cdMin, A.cdMax) * (n.isSheriff ? 0.85 : 1) * Math.max(0.55, 1 - wanted * 0.08));
       const rangePenalty = pd > A.range * 1.4 ? 0.6 : 1;
       fireNpc(n, pd, mult * rangePenalty);
     }

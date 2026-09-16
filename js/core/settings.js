@@ -8,13 +8,24 @@
    ========================================================================== */
 "use strict";
 // ---------- settings ----------
-const settings = { sens: 0.0022, volume: 0.7, quality: 2, invertY: false };
+const settings = { sens: 0.0022, volume: 0.7, quality: 2, invertY: false, difficulty: 'deputy' };
 // did this device already have saved settings? a first launch on a phone should
 // not inherit the desktop quality default
 let settingsWereSaved = false;
 try {
   const s = JSON.parse(localStorage.getItem('wildwest.settings') || 'null');
-  if (s) { Object.assign(settings, s); settingsWereSaved = true; }
+  // Copy the known keys one by one rather than Object.assign: this blob comes from
+  // storage, and assigning it wholesale would let a "__proto__" key swap the
+  // prototype of the settings object out from under the game. Unknown keys and
+  // out of range numbers are dropped instead.
+  if (s && typeof s === 'object' && !Array.isArray(s)) {
+    if (typeof s.sens === 'number') settings.sens = clamp(s.sens, 0.0002, 0.02);
+    if (typeof s.volume === 'number') settings.volume = clamp(s.volume, 0, 1);
+    if (typeof s.quality === 'number') settings.quality = clamp(Math.round(s.quality), 0, 2);
+    if (typeof s.invertY === 'boolean') settings.invertY = s.invertY;
+    if (typeof s.difficulty === 'string') settings.difficulty = s.difficulty;
+    settingsWereSaved = true;
+  }
 } catch (e) {}
 function saveSettings() { try { localStorage.setItem('wildwest.settings', JSON.stringify(settings)); } catch (e) {} }
 

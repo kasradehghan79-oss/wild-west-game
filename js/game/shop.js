@@ -31,20 +31,21 @@ function refreshShop() {
     nm.innerHTML = '<b>' + it.name + (it.max > 1 && !it.repeat ? ' (' + owned + '/' + it.max + ')' : '') + '</b><small>' + it.desc + '</small>';
     const pr = document.createElement('div');
     pr.className = 'pr';
-    pr.textContent = maxed ? '' : '$' + it.price;
+    pr.textContent = maxed ? '' : '$' + Difficulty.price(it.price);
     const btn = document.createElement('button');
     btn.textContent = maxed ? 'OWNED' : 'BUY';
-    btn.disabled = maxed || cash < it.price;
+    btn.disabled = maxed || cash < Difficulty.price(it.price);
     btn.addEventListener('click', e => { e.stopPropagation(); buyItem(it); });
     row.appendChild(nm); row.appendChild(pr); row.appendChild(btn);
     shopItemsEl.appendChild(row);
   });
 }
 function buyItem(it) {
-  if (cash < it.price) return;
+  const cost = Difficulty.price(it.price);
+  if (cash < cost) return;
   const owned = ownedCount(it.id);
   if (!it.repeat && owned >= it.max) return;
-  cash -= it.price;
+  cash -= cost;
   if (it.id === 'bandage') { hp = maxHp; Sound.pickup(); }
   else if (it.id === 'ammo') { Object.keys(playerWeapons).forEach(k => { if (playerWeapons[k].owned) playerWeapons[k].ammo = magFor(k); }); syncWeapon(); Sound.pickup(); }
   else if (it.id === 'hp') { upgrades.hp++; maxHp = maxHpNow(); hp = maxHp; refreshHearts(); Sound.coin(); }
@@ -52,19 +53,19 @@ function buyItem(it) {
   else if (it.id === 'reload') { upgrades.reload++; reloadDur = reloadFor(curWeapon); Sound.coin(); }
   else if (it.id === 'steady') { upgrades.steady++; Sound.coin(); }
   else if (it.id === 'rifle') { upgrades.rifle = 1; playerWeapons.rifle.owned = true; playerWeapons.rifle.ammo = magFor('rifle'); Sound.coin(); feed('Purchased the Winchester rifle \u2014 press 2', 'good'); }
-  feed('Bought ' + it.name + ' for $' + it.price, 'good');
+  feed('Bought ' + it.name + ' for $' + cost, 'good');
   refreshShop();
 }
 function openShop() {
   if (shopOpen || playerDead || matchState !== 'play') return;
-  shopOpen = true;
+  Mode.set(MODE.SHOP);
   refreshShop();
   shopEl.classList.add('show');
   if (document.pointerLockElement) document.exitPointerLock();
   aiming = false; shooting = false;
 }
 function closeShop() {
-  shopOpen = false;
+  Mode.set(MODE.PLAYING);
   shopEl.classList.remove('show');
   if (!isTouch) requestLock();
 }

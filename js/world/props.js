@@ -186,7 +186,9 @@ function addPickup(type, range) {
   scene.add(g);
   pickups.push({ g, type, phase: Math.random() * 6, x, z, base });
 }
-for (let i = 0; i < 7; i++) addPickup('health', 110);
-for (let i = 0; i < 9; i++) addPickup('ammo', 170);
+// How much there is to find is part of the difficulty: on LEGEND the desert is
+// nearly bare, on GREENHORN there is bandages and powder all over the county.
+for (let i = 0; i < Difficulty.pickup(7); i++) addPickup('health', 110);
+for (let i = 0; i < Difficulty.pickup(9); i++) addPickup('ammo', 170);
 for (let i = 0; i < 8; i++) addPickup('cash', 150);
 

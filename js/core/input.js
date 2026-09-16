@@ -73,7 +73,9 @@ addEventListener('keydown', e => {
   }
   if (paused || shopOpen) return;
   keys[e.code] = true;
-  if (e.code === 'KeyE' && !e.repeat) toggleMount();
+  // E is the universal "act on what is in front of me": a mission objective here
+  // takes priority over mounting, the same way the on screen pill does
+  if (e.code === 'KeyE' && !e.repeat) { if (!Witnesses.use() && !Missions.interact()) toggleMount(); }
   if (e.code === 'KeyR' && !e.repeat) startReload();
   if (e.code === 'KeyF' && !e.repeat && nearStore()) openShop();
   if (e.code === 'Digit1') switchWeapon('revolver');
@@ -84,7 +86,7 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 
 function setPaused(v) {
   if (v && matchState !== 'play') return;
-  paused = v;
+  Mode.set(v ? MODE.PAUSED : MODE.PLAYING);
   if (v) {
     pauseEl.classList.add('show');
     if (document.pointerLockElement) document.exitPointerLock();
@@ -102,6 +104,7 @@ document.getElementById('restartBtn').addEventListener('click', e => {
   playerWeapons.rifle.owned = false; playerWeapons.rifle.ammo = 0; curWeapon = 'revolver';
   setPaused(false);
   startRound();
+  Save.autosave();
 });
 document.getElementById('shopClose').addEventListener('click', e => { e.stopPropagation(); closeShop(); });
 document.getElementById('startBtn').addEventListener('click', e => { e.stopPropagation(); startMatch(); });

@@ -17,8 +17,14 @@ let reloading = false, reloadT = 0;
 let wanted = 0, wantedT = 0, wantedKills = 0, sheriffRevealed = false;
 let outlawPts = 0, lawPts = 0, roundNum = 1, roundT = 60;
 let matchState = 'intro', paused = false, shopOpen = false;
+// seconds since the player last fired: how long the muzzle flash keeps giving him away
+let playerShotT = 0;
+// when public gunfire last opened a case: it is rate limited, so it has to be declared
+let lastGunCrime = -99;
 let cash = 0, shake = 0, runT = 0, vy = 0, grounded = true, stepT = 0, gallopT = 0;
 let totalKills = 0, headshots = 0, survivedRounds = 0, hp = 5;
+// wall clock seconds actually played, kept for the save screen
+let playtime = 0;
 const WIN_PTS = 3, MAX_ROUNDS = 5, ROUND_TIME = 60;
 const GRAVITY = 20, JUMP_V = 6.4;
 
@@ -76,16 +82,19 @@ function hurtPlayer(dmg, from) {
   addShake(0.22 + (dmg || 1) * 0.16);
   if (from) hurtFrom = { x: from.g.position.x, z: from.g.position.z };
   Sound.hurt();
+  Bus.emit('player:hurt', { dmg: dmg || 1, from: from || null, hp: hp });
   if (hp <= 0) {
     playerDead = true;
     player.fall = 0;
     if (mounted) { mounted = false; showPlayerLegs(true); }
     Sound.die();
+    Bus.emit('player:died', { kills: kills, headshots: headshots, cash: cash });
     deadTitle.textContent = 'YOU DIED';
     deadSub.textContent = 'tap to continue';
     deadStat.textContent = 'Kills ' + kills + '  \u00b7  Headshots ' + headshots + '  \u00b7  Cash $' + cash;
     deadEl.classList.add('show');
     endRound('law', 'dead');
+    Mode.set(MODE.DEAD);
   }
 }
 function addCash(n, pos) {

@@ -205,6 +205,25 @@ Phone specific behaviour, all in the web build:
   device through `body.touch`: the desktop glyph is laid out from the top of a
   tall window, so on a landscape phone it landed on the JUMP button, and touch
   already has its own fullscreen button under PAUSE.
+- **Progress survives closing the app.** Saves live in the WebView's
+  `localStorage`, which Android keeps in the app's private data directory: they
+  survive a full app restart and a device reboot, and they are removed when the
+  app is uninstalled or its data is cleared. Three manual slots plus an autosave
+  written at every round boundary. `SAVE GAME` / `LOAD GAME` are in the pause
+  menu, and the title screen grows a `CONTINUE` button once a save exists.
+- **The mission tracker sits under the score**, centred and clear of both thumb
+  zones: the objective name, one line per live objective with a tick when it is
+  done, and one line per side job. It uses the same `--sat` safe-area inset as the
+  rest of the HUD, and it is `pointer-events: none`, so it never eats a drag.
+- **The law, its witnesses and the bounty on your head are saved inside the app too**, so a wanted level survives closing the game.
+- **The AI runs identically in the app.** Perception is throttled by design (sight
+  on a stagger, squad orders a few times a second), which matters more on a phone
+  than on a desktop, and the tests cover the same behaviour on the emulated phone
+  as on the desktop build.
+- **Mission interactions go through the same pill as MOUNT and STORE.** Walking
+  into range of a mission objective (reporting in, loading a wagon) relabels the
+  bottom-centre pill and the `E` key to that action, so no new touch button was
+  needed for the mission system.
 - **The `?` help glyph moves with the device.** Its desktop offset (`top: 214px`)
   also put it on top of JUMP, so on touch it sits in the top-left strip beside
   PAUSE (50px, clear of everything) and opens a panel of *touch* controls in the
@@ -255,6 +274,26 @@ The build was run end to end and the resulting APK was inspected:
   - the contextual STORE / MOUNT pill sits above the control hint line instead of
     clipping its top edge;
   - **no console errors** during any of it.
+
+Phase 1-2 (architecture, game states, saves) was verified separately, in the same
+emulated landscape phone and in a desktop context with touch off:
+
+  - opening PAUSE or the GENERAL STORE freezes the world: an NPC's position, the
+    round timer, the day/night clock and passive healing were all sampled across
+    a pause and did not advance by a single frame;
+  - the same snapshot taken while playing shows the world alive (NPC walked
+    2.5m, round timer -1.5s, day clock and playtime advancing), so the gate does
+    not leak into normal play;
+  - a save taken from the pause menu comes back byte for byte through CONTINUE on
+    the title screen: cash, round, kills, wanted level and its timer, health,
+    weapon, ammo, upgrades, sheriff reveal and the player's exact position;
+  - a save whose stored position is inside a house is nudged to the nearest clear
+    spot instead of dropping the player into a wall;
+  - garbage in a slot (`{ this is not json`) and a save from a future version both
+    report as `corrupt` in the UI, return `false` from `load` and leave the
+    running match untouched;
+  - the desktop chrome is unchanged: no `body.touch`, the browser fullscreen
+    glyph visible, PC cheat sheet, help glyph back at its desktop offset.
 - The platform renderer in that emulator reported SwiftShader (software GL), so
   its frame rate is not a device figure. On a GPU-backed desktop browser the same
   build runs at ~160 fps.

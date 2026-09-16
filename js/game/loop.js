@@ -65,6 +65,62 @@ function updateHUD(dt) {
   const lowP = !playerDead && hp <= maxHp * 0.34 && matchState === 'play';
   lowEl.style.opacity = lowP ? (0.45 + Math.sin(clock.elapsedTime * 3.4) * 0.25) : 0;
   dmgEl.style.opacity = dmgFlash * 0.8;
+  // the price on your head, only while there is one
+  if (bountyEl) {
+    const b = Law.bounty;
+    if (b > 0) { bountyEl.textContent = 'BOUNTY $' + b; bountyEl.classList.add('on'); }
+    else if (bountyEl.classList.contains('on')) { bountyEl.classList.remove('on'); bountyEl.textContent = ''; }
+  }
+  updateMissionTracker();
+}
+
+// The mission tracker: name plus the live objectives, with a tick when one is done.
+// It only touches the DOM when the text actually changes, because this runs every
+// frame and rebuilding three spans sixty times a second is pure waste.
+let missionSig = '';
+function updateMissionTracker() {
+  if (!missionEl) return;
+  const list = Missions.hud();
+  if (!list.length) {
+    if (missionSig !== '') { missionSig = ''; missionEl.classList.remove('on'); missionListEl.innerHTML = ''; }
+    return;
+  }
+  const m = list[0];
+  // A branching objective is a choice, so the tracker shows the roads themselves rather
+  // than the group: "Break the ambush / pick one" tells a player nothing.
+  const flatten = (objs, prefix) => {
+    const out = [];
+    objs.forEach(o => {
+      if (o.children && o.children.length) {
+        o.children.forEach(c => out.push({
+          label: prefix + (c.optional ? 'Optional: ' : '') + c.label, detail: c.detail, state: c.state
+        }));
+      } else {
+        out.push({ label: prefix + (o.optional ? 'Optional: ' : '') + o.label, detail: o.detail, state: o.state });
+      }
+    });
+    return out;
+  };
+  const lines = flatten(m.objectives, '').slice(0, 5);
+  // side jobs ride along one line each, prefixed with the job's name so it is obvious
+  // that a second thing is asking for something
+  list.slice(1).forEach(s => {
+    flatten(s.objectives.filter(o => o.state !== 'done'), s.name + ': ').forEach(l => lines.push(l));
+  });
+  const kindLabel = m.kind === 'main' ? 'MISSION' : 'SIDE JOB';
+  const sig = kindLabel + '|' + m.name + '|' + lines.map(o => o.label + o.detail + o.state).join('|');
+  if (sig === missionSig) return;
+  missionSig = sig;
+  missionEl.classList.add('on');
+  if (missionLabelEl) missionLabelEl.textContent = kindLabel;
+  missionNameEl.textContent = m.name.toUpperCase();
+  missionListEl.innerHTML = '';
+  lines.slice(0, 5).forEach(o => {
+    const d = document.createElement('div');
+    d.className = 'mline ' + (o.state === 'done' ? 'done' : o.state === 'failed' ? 'failed' : '');
+    d.textContent = o.label + (o.detail ? '  ' + o.detail : '');
+    missionListEl.appendChild(d);
+  });
 }
 
 function drawMinimap() {
@@ -102,6 +158,21 @@ function drawMinimap() {
       mm.beginPath(); mm.arc(wx(n.g.position.x), wy(n.g.position.z), 7.5 + Math.sin(clock.elapsedTime * 5) * 1.6, 0, TAU); mm.stroke();
     }
   }
+  // mission markers: a pulsing diamond, drawn last so the current job is never
+  // hidden under the town
+  const pulse = 0.6 + Math.sin(clock.elapsedTime * 4) * 0.4;
+  for (const k of Missions.markers()) {
+    const x = wx(k.x), y = wy(k.z);
+    mm.save();
+    mm.translate(x, y);
+    mm.rotate(Math.PI / 4);
+    mm.fillStyle = k.danger ? 'rgba(224,90,74,.95)' : k.friendly ? 'rgba(157,224,138,.95)' : 'rgba(240,217,168,.95)';
+    mm.fillRect(-3.6, -3.6, 7.2, 7.2);
+    mm.restore();
+    mm.strokeStyle = 'rgba(240,217,168,' + (0.25 + pulse * 0.45).toFixed(2) + ')';
+    mm.lineWidth = 1.4;
+    mm.beginPath(); mm.arc(x, y, 6 + pulse * 5, 0, TAU); mm.stroke();
+  }
   mm.fillStyle = '#c9a227';
   mm.beginPath(); mm.arc(wx(horse.g.position.x), wy(horse.g.position.z), 3, 0, TAU); mm.fill();
   mm.save();
@@ -120,7 +191,10 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
   frame++;
-  const active = matchState === 'play' && !paused && !shopOpen;
+  // One definition of "the match is running", shared with the menus. Everything
+  // gameplay facing hangs off this, so opening the pause menu or the store really
+  // does stop the world instead of only hiding it.
+  const active = Mode.live();
   const [mx0, mz0, len0] = playerInputVector();
   const moving = len0 > 0 && active && !playerDead;
   const pos = mounted ? horse.g.position : player.g.position;
@@ -131,7 +205,7 @@ function animate() {
   shake = Math.max(0, shake - dt * 3.4);
   zoneMat.opacity = 0.3 + Math.sin(t * 2.2) * 0.18;
 
-  if (matchState === 'play' && !playerDead && !paused && !shopOpen) {
+  if (active) {
     if (Math.hypot(pos.x, pos.z) > CAMP_R) {
       zoneT -= dt;
       if (zoneT <= 0) { zoneT = 1; hurtPlayer(0.25); }
@@ -320,7 +394,8 @@ function animate() {
   if (stamLock && stam >= 30) stamLock = false;
   if (!sprinting) stam = Math.min(maxStam, stam + (stamLock ? 8 : 19) * dt);
   sinceDmg += dt;
-  if (matchState === 'play' && !playerDead && sinceDmg > 7 && hp < maxHp) hp = Math.min(maxHp, hp + dt * 0.5);
+  // passive healing is gameplay: it must not tick while a menu is open
+  if (active && sinceDmg > 7 && hp < maxHp) hp = Math.min(maxHp, hp + dt * 0.5 * Difficulty.healRate(1));
 
   // ---------------- weapon / aim pose ----------------
   aimAmt = lerp(aimAmt, (aiming && !playerDead && active) ? 1 : 0, Math.min(1, dt * 8));
@@ -370,13 +445,24 @@ function animate() {
     wObj.rotation.z = lerp(wObj.rotation.z, 0, Math.min(1, dt * 10));
   }
 
-  updateHorse(dt);
-  if (matchState === 'play') npcs.forEach(n => updateNPC(n, dt));
-  if (!playerDead) blinkH(player, dt);
+  // a paused world must hold its pose: no rig animation, no NPC brain, no idle
+  // blinking, no particle drift behind the menu
+  if (active) {
+    updateHorse(dt);
+    // touch look runs before the camera is built from yaw/pitch
+    if (typeof touchLook === 'function') touchLook(dt);
+    npcs.forEach(n => updateNPC(n, dt));
+    // the squads decide their orders once everyone has had a chance to look around
+    Squads.update(dt);
+    blinkH(player, dt);
+  } else if (matchState !== 'play' || playerDead) {
+    // dead or between rounds the horse still settles so it never hangs mid-gait
+    updateHorse(dt);
+  }
   if (active && (fireHold || shooting)) shoot();
-  if (matchState === 'play' && wanted > 0) {
+  if (active && wanted > 0) {
     wantedT -= dt;
-    if (wantedT <= 0) { wanted--; wantedT = 16; }
+    if (wantedT <= 0) { wanted--; wantedT = Difficulty.lawPressure(16); }
   }
   if (playerDead) {
     player.fall = Math.min(1, player.fall + dt * 3);
@@ -399,15 +485,16 @@ function animate() {
   }
 
   // ---------------- pickups ----------------
-  for (const p of pickups) {
+  if (active) for (const p of pickups) {
     if (!p.g.visible) continue;
     p.phase += dt;
     const gy = heightAt(p.g.position.x, p.g.position.z);
     p.base = gy + 0.6;
     p.g.position.y = p.base + Math.sin(p.phase * 2) * 0.1;
     p.g.rotation.y += dt * 1.2;
-    if (playerDead) continue;
     if (Math.hypot(p.g.position.x - player.g.position.x, p.g.position.z - player.g.position.z) < 1.35) {
+      // mission items belong to whichever objective spawned them, not to the wallet
+      if (p.mission) { if (Missions.onPickup(p)) { p.g.visible = false; p.taken = true; Sound.pickup(); } continue; }
       if (p.type === 'health') { if (hp < maxHp) { hp = Math.min(maxHp, hp + 1); p.g.visible = false; Sound.pickup(); feed('Picked up a bandage +1 health', 'good'); } }
       else if (p.type === 'ammo') { if (ammo < magSize) { setAmmo(magSize); p.g.visible = false; Sound.pickup(); } }
       else { addCash(15, p.g.position); cash += 0; p.g.visible = false; Sound.coin(); feed('Found $15', 'good'); }
@@ -415,13 +502,18 @@ function animate() {
   }
 
   // ---------------- timers ----------------
-  if (matchState === 'play' && !playerDead) {
+  if (active) {
+    playtime += dt;
     roundT -= dt;
+    Missions.update(dt);
+    Witnesses.update(dt);
+    Law.update(dt);
+    playerShotT = Math.max(0, playerShotT - dt);
     if (roundT <= 0) { roundT = 0; endRound('law', 'timeout'); }
   }
   // if the posse is still standing when the sand runs low, a tip comes in and
   // the sheriff is finally marked on the map
-  if (matchState === 'play' && !sheriffRevealed && roundT < ROUND_TIME * 0.5) {
+  if (active && !sheriffRevealed && roundT < ROUND_TIME * 0.5) {
     const sh = npcs.find(n => n.isSheriff && !n.dead);
     if (sh) {
       sheriffRevealed = true;
@@ -434,18 +526,22 @@ function animate() {
   }
   dmgFlash = Math.max(0, dmgFlash - dt * 1.6);
   heartT -= dt;
-  if (!playerDead && hp <= maxHp * 0.34 && matchState === 'play' && heartT <= 0) {
+  if (active && hp <= maxHp * 0.34 && heartT <= 0) {
     heartT = 0.72;
     Sound.heart();
   }
   if (Sound && settings.quality > 0) Sound.ambientUpdate(nightF, dt);
   Sound.musicUpdate(matchState === 'play' && !playerDead ? Math.min(1, wanted / 4 + (roundT < 12 ? 0.3 : 0)) : 0.05);
-  FX.update(dt);
-  updateCasings(dt);
-  // grass: wind clock plus the trample pads that follow whoever is walking
+  if (active) {
+    FX.update(dt);
+    updateCasings(dt);
+    // grass: trample pads follow whoever is walking, and fade back when they stop
+    updateGrassPads(dt);
+  }
+  // the wind clock keeps running: the tufts are scenery, not gameplay, and a
+  // frozen field of grass under a menu looks broken
   const gt = clock.elapsedTime;
   for (let i = 0; i < grassShaders.length; i++) grassShaders[i].uniforms.uTime.value = gt;
-  updateGrassPads(dt);
 
   // ---------------- camera ----------------
   // The view direction comes straight from yaw/pitch, so mouse look is always exactly
@@ -479,7 +575,7 @@ function animate() {
   camera.updateProjectionMatrix();
 
   // ---------------- day / night ----------------
-  if (matchState === 'play' && !paused && !shopOpen) dayTime = (dayTime + dt / DAY_LENGTH) % 1;
+  if (active) dayTime = (dayTime + dt / DAY_LENGTH) % 1;
   const A = dayTime * Math.PI * 2;
   const sunEl = Math.sin(A);
   const d = Math.max(0, sunEl), n = Math.max(0, -sunEl);
@@ -572,11 +668,13 @@ function animate() {
 
   skyText.position.y = 62 + Math.sin(t * 0.5) * 1.2;
   skyText.lookAt(camera.position);
-  clouds.forEach(c => {
+  // drifting clouds, campfire smoke and birds belong to the running world; they
+  // hold still with everything else while a menu is up
+  if (active) clouds.forEach(c => {
     c.position.x += dt * 1.6;
     if (c.position.x > 260) c.position.x = -260;
   });
-  smokePuffs.forEach(s => {
+  if (active) smokePuffs.forEach(s => {
     s.userData.t += dt * s.userData.spd;
     if (s.userData.t > 1) s.userData.t -= 1;
     const k = s.userData.t, src = s.userData.src;
@@ -584,7 +682,7 @@ function animate() {
     s.scale.setScalar(0.4 + k * 1.9);
     s.material.opacity = 0.3 * (1 - k);
   });
-  birds.forEach(b => {
+  if (active) birds.forEach(b => {
     b.g.visible = nightF < 0.6;
     b.t += dt;
     const a = b.t * 0.15 + b.o;
@@ -594,7 +692,7 @@ function animate() {
     b.wl.rotation.z = f;
     b.wr.rotation.z = -f;
   });
-  fire.phase += dt;
+  if (active) fire.phase += dt;
   const fp = fire.phase;
   for (let i = 0; i < fire.flames.length; i++) fire.flames[i].uniforms.uTime.value = fp;
   // the logs pulse: burning cracks flare and settle on their own rhythm
@@ -671,10 +769,17 @@ function animate() {
     if (btnContext) {
       const atStore = nearStore();
       const besideHorse = player.g.position.distanceTo(horse.g.position) < 3.8;
-      const action = atStore ? 'shop' : (besideHorse ? 'mount' : '');
+      // A witness running from you with your crime in his pocket outranks everything
+      // else here: it is the one thing on this street that cannot wait. After that a
+      // mission objective, which is what the player is in the middle of doing.
+      const buy = typeof Witnesses === 'object' ? Witnesses.prompt() : null;
+      const job = buy ? null : Missions.prompt();
+      const action = buy ? 'bribe' : job ? 'mission' : atStore ? 'shop' : (besideHorse ? 'mount' : '');
       if (action && matchState === 'play') {
         btnContext.dataset.action = action;
-        ctxLabel.textContent = atStore ? 'OPEN STORE' : (mounted ? 'DISMOUNT' : 'MOUNT HORSE');
+        ctxLabel.textContent = buy ? buy.label
+          : job ? job.label
+            : atStore ? 'OPEN STORE' : (mounted ? 'DISMOUNT' : 'MOUNT HORSE');
         btnContext.classList.add('on');
       } else {
         btnContext.classList.remove('on');

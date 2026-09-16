@@ -46,6 +46,17 @@ function shoot() {
   bloom = Math.min(1.8, bloom + W.bloom * 0.42);
   addShake(curWeapon === 'rifle' ? 0.16 : 0.1);
   Sound.shoot(W.sound);
+  // A gunshot carries. Everyone inside earshot turns towards it, and a lawman close
+  // enough works out roughly where it came from without seeing the muzzle flash -
+  // which is what makes shooting from cover a decision rather than a free action.
+  playerShotT = 3;
+  Perceive.noise(player.g.position.x, player.g.position.z, 42, 'shot');
+  // Public gunfire is a crime when somebody sees it, and the law only hears about it
+  // once per burst rather than once per round.
+  if (clock.elapsedTime - (lastGunCrime || -99) > 8) {
+    lastGunCrime = clock.elapsedTime;
+    Witnesses.witnessed('gunfire', player.g.position.x, player.g.position.z, { silent: true });
+  }
   FX.impact(gpos.clone().addScaledVector(gdir, curWeapon === 'rifle' ? 0.62 : 0.26), gdir, 'muzzle');
   ejectCasing(gpos.clone().add(new THREE.Vector3(rnd(-0.05, 0.05), 0.02, rnd(-0.05, 0.05))), gdir);
   const spread = (aiming ? W.ads : W.spread) * spreadMult() * (mounted ? 1.7 : 1) * (1 + bloom) * (runT > 0 ? 1.4 : 1);
@@ -73,9 +84,16 @@ function shoot() {
       h.head.getWorldPosition(headP);
       const isHead = h0.point.distanceTo(headP) < 0.34 * h.g.scale.y;
       if (isHead) headshots++;
-      const dmg = W.dmg * (isHead ? W.head : 1);
+      const dmg = Difficulty.playerDmg(W.dmg * (isHead ? W.head : 1));
       const wasAlive = h.hp > 0;
       h.hp -= dmg;
+      // Being hit settles the question of who the enemy is: he is hurt, he is
+      // looking, and he knows roughly where the shot came from, even from behind.
+      h.hitT = 6;
+      h.susp = 1;
+      h.sees = true;
+      h.lastKnown = { x: player.g.position.x, z: player.g.position.z, age: 0 };
+      if (h.ai && (h.ai.state === 'wander' || h.ai.state === 'work')) h.ai.state = 'combat';
       if (wanted === 0) { wanted = 1; wantedT = 16; Sound.whistle(); }
       if (h.isSheriff) {
         h.shots++;
@@ -88,6 +106,8 @@ function shoot() {
           }
         }
       }
+      // wounding somebody in front of people is assault; the death case is opened below
+      Witnesses.witnessed('assault', h.g.position.x, h.g.position.z, { victim: h, silent: true });
       addSplat(o, end, normal, rnd(0.05, 0.1));
       FX.impact(end, normal, 'flesh');
       FX.blood(end, dir, isHead ? 22 : 12);
@@ -96,28 +116,39 @@ function shoot() {
       if (h.hp <= 0 && wasAlive) {
         h.dead = true;
         kills++; totalKills++;
+        // the one place a person dies: missions, the law system and the audio
+        // director all hang off this
+        h.hitT = 0;
+        Bus.emit('npc:died', {
+          npc: h, headshot: isHead, civilian: !!h.civil,
+          archetype: h.archetype, byPlayer: true
+        });
+        // murder, or the one crime the county never forgives. It only reaches the law
+        // if somebody saw it, which is what makes silencing a witness worth trying.
+        Witnesses.witnessed(
+          h.civil ? 'murder'
+            : (h.archetype === 'sheriff' || h.archetype === 'deputy' || h.archetype === 'rifleman' || h.archetype === 'shotgunner' ? 'lawman' : 'murder'),
+          h.g.position.x, h.g.position.z, { victim: h }
+        );
         spawnBloodPool(h.g.position);
         const A = ARCH[h.archetype];
         const bounty = A.bounty * (isHead ? 1.5 : 1);
         if (h.civil) {
-          wanted = Math.min(5, wanted + 2); wantedT = 20;
           addCash(-15, h.g.position);
-          feed('CIVILIAN KILLED \u2014 wanted level up, bounty cut', 'bad');
+          feed('CIVILIAN KILLED \u2014 bounty cut', 'bad');
           hitmark('kill');
         } else {
           addCash(Math.round(bounty), h.g.position);
           Sound.coin();
           hitmark('kill');
           feed('Killed ' + A.name + (isHead ? ' \u2014 headshot' : '') + '  +$' + Math.round(bounty), 'good');
+          // Dead lawmen still count, but the wanted level itself belongs to the law
+          // system now: it escalates from the record it has on you, not from a counter.
           wantedKills++;
           if (wantedKills >= 2) {
-            if (wanted < 5) { wanted++; wantedT = 16; }
-            Sound.whistle();
-            spawnReinforcement(wanted >= 3 && Math.random() < 0.45 ? 'rifleman' : 'deputy');
-            if (wanted >= 4 && Math.random() < 0.5) spawnReinforcement('shotgunner');
-            feed('Wanted level ' + wanted + ' \u2014 reinforcements inbound', 'bad');
-            showObjective('WANTED LEVEL ' + wanted, 'Lawmen are flooding the streets \u2014 stay sharp', 2600);
             wantedKills = 0;
+            Sound.whistle();
+            showObjective('THE POSSE IS OUT', 'Lawmen are flooding the streets \u2014 stay sharp', 2600);
           }
           if (h.isSheriff) endRound('outlaw');
         }
