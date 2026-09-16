@@ -85,10 +85,11 @@ const Splash = (() => {
     // but always leaves the title, its buttons and the difficulty row a place
     // to stand. Below 620px tall - a landscape phone - there is no room at all
     // and the menu keeps its own layout, with the sun passing behind it.
-    // Below 780px tall the menu needs the whole screen, so the sun drops low and
-    // passes behind the panel; above it the two halves share the screen.
-    horizon = h < 780
-      ? Math.round(h * 0.6)
+    // A landscape phone is all width and no height, so the sky takes a band at
+    // the top and the menu gets the rest: the sun stays in view, standing on the
+    // horizon, instead of being driven out of sight behind the panel.
+    horizon = shortScreen()
+      ? Math.round(h * 0.34)
       : Math.round(Math.min(h * 0.52, Math.max(h * 0.32, h - 540)));
     // css/menus.css reads this back, so #start and the canvas can never
     // disagree about where the ground starts
@@ -244,9 +245,7 @@ const Splash = (() => {
 
     const r = radius();
     // half-set to standing: the last frame is the icon's own pose
-    // on a landscape phone the sun never shows at all: its light on the sky is
-    // the whole of it, and the menu keeps a clean screen
-    const cy = shortScreen() ? horizon + r : horizon - r * (0.28 + 0.72 * ease(progress));
+    const cy = horizon - r * (0.28 + 0.72 * ease(progress));
     // 60 degrees of index per round, settling rather than snapping
     const step = Math.min(STEPS, Math.floor(progress * STEPS + 1e-6));
     const inner = Math.min(1, progress * STEPS - step);

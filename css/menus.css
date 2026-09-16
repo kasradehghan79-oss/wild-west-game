@@ -24,12 +24,12 @@
      itself is see-through; the old flat gradient comes back the moment the
      animation is done (js/game/splash.js adds .solid), so a menu opened later
      in the session is never transparent over the world */
-  #start { background: none; }
-  /* On a screen with room to spare the menu sits below the horizon the canvas
-     draws - the canvas publishes it as --horizon, so the two can never
-     disagree - and the rows tighten up a little to buy the space. A short
-     landscape phone has no room for that: there the animation is the backdrop
-     and the menu keeps its own layout. */
+  /* The menu always starts below the horizon the canvas draws - the canvas
+     publishes it as --horizon, so the sun and the title can never collide -
+     and the credit keeps a strip of its own at the bottom. */
+  #start { background: none; padding-top: var(--horizon, 40vh); padding-bottom: 26px; }
+
+  /* On a screen with room to spare the rows tighten up a little to buy space. */
   @media (min-height: 780px) {
     /* the bottom padding is the credit's own strip: without it the menu runs
        into it on a laptop-height screen */
@@ -45,7 +45,7 @@
   /* The title is drawn as paths, not set in a font, so it opens the same on
      every machine. The drop shadow is the only thing keeping it off the sky. */
   #start h1.logo { margin: 0 0 10px; pointer-events: none; }
-  #start .logo svg { display: block; width: min(80vw, 620px); height: auto;
+  #start .logo svg { display: block; width: min(78vw, 545px); height: auto;
     filter: drop-shadow(0 6px 16px rgba(0,0,0,.8)); }
   #start .tag { color: var(--gold2); letter-spacing: 5px; font-size: 12px; margin-bottom: 22px; text-transform: uppercase; }
   #start .keys { display: grid; grid-template-columns: auto auto; gap: 5px 16px; font-size: 12.5px; color: #e3d7bd;
@@ -81,6 +81,30 @@
   #continueBtn { display: none; }
   #continueBtn { display: none; }
   #continueBtn.on { display: block; }
+
+  /* ---------- a phone held sideways: wide, short, keyboard-free ---------- */
+  /* There is no vertical room, so the width is used instead: a smaller title,
+     the tagline on one comfortable line, and the difficulty row reading as one
+     block with the buttons. Everything lifts a shade in contrast, because the
+     small type sits on the dark ground rather than on the bright sky. This
+     block sits after the rules it overrides, so the cascade lands where it
+     reads. */
+  @media (max-height: 620px) {
+    #start .logo svg { width: min(58vw, 385px); }
+    #start .tag { font-size: 11.5px; letter-spacing: 3.4px; line-height: 1.6;
+      margin-bottom: 14px; color: #ffd98a; }
+    #start .row.btns { gap: 10px; margin-top: 2px; }
+    #start .play { font-size: 17px; letter-spacing: 6px; padding: 11px 30px; }
+    #start .mbtn { font-size: 11.5px; letter-spacing: 3px; padding: 10px 16px; }
+    .diffblock { margin-top: 12px; }
+    .difflabel { font-size: 9.5px; letter-spacing: 3.4px; margin-bottom: 6px; color: #bda87e; }
+    .diffbtn { padding: 6px 9px; min-width: 68px; gap: 3px; }
+    .diffbtn b { font-size: 10px; letter-spacing: 1.6px; line-height: 1.15; }
+    .diffbtn small { font-size: 8.5px; letter-spacing: 1.4px; line-height: 1.15; }
+    .diffblurb { font-size: 10.5px; line-height: 1.55; margin-top: 8px; max-width: 540px;
+      color: #d2c5a7; }
+    .credit { font-size: 10.5px; letter-spacing: 1.8px; color: #c3b498; bottom: 8px; }
+  }
 
   #pause { background: rgba(6,4,2,.82); }
   #pause h2, #roundend b { font-size: clamp(26px, 6vw, 46px); letter-spacing: 6px; margin: 0 0 8px; text-shadow: 0 3px 10px #000; }
