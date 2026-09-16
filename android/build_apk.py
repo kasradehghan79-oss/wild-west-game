@@ -100,6 +100,9 @@ def find_java_home(explicit: str | None) -> Path:
         candidates.append(explicit)
     candidates.append(os.environ.get("JAVA_HOME", ""))
     candidates += [
+        # where this project's own toolchain lives, so the usual command works
+        # without --java-home: see android/README.md
+        "~/.kilotools/jdk/*",
         "/Applications/Android Studio.app/Contents/jbr/Contents/Home",
         "~/Library/Java/JavaVirtualMachines/*/Contents/Home",
         "/usr/lib/jvm/*",
@@ -112,7 +115,12 @@ def find_java_home(explicit: str | None) -> Path:
         "%LOCALAPPDATA%/Programs/Eclipse Adoptium/jdk-*",
     ]
     for c in candidates:
-        for path in sorted(glob.glob(os.path.expandvars(str(c)).replace("\\", "/"))) or [c]:
+        if not c:
+            continue
+        # expanduser as well as expandvars: every "~" path in that list used to
+        # be dead, because glob does not expand the tilde either
+        base = str(Path(os.path.expandvars(str(c))).expanduser()).replace("\\", "/")
+        for path in sorted(glob.glob(base)) or ([base] if Path(base).exists() else []):
             p = Path(path)
             if (p / "bin" / exe("javac")).exists():
                 say(f"JDK: {p}")
@@ -137,6 +145,8 @@ def find_java_home(explicit: str | None) -> Path:
 def find_sdk(explicit: str | None) -> Path:
     head("Locating the Android SDK")
     roots = [explicit, os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT"),
+             # this project's own toolchain, so the usual command works without --sdk
+             "~/.kilotools/sdk",
              "%LOCALAPPDATA%/Android/Sdk", "~/Android/Sdk", "~/Library/Android/sdk",
              "/usr/local/lib/android/sdk", "/opt/android-sdk"]
     sdk = first_existing(roots)
