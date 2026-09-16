@@ -221,19 +221,22 @@ def find_toolchain(sdk: Path):
 # ----------------------------------------------------------------------- build
 def stage_assets(root: Path, build_dir: Path) -> None:
     head("Staging the web game into assets")
+    # What ships is the compiled build, not the sources. tools/make-dist.mjs
+    # folds the game into one script inside a wrapper, which lets the compiler
+    # rename every name that used to be shared between files: unzipping the APK
+    # otherwise hands over the repository. It is built here rather than trusted
+    # from dist/, so a stale copy cannot ship.
+    dist_www = root / "dist" / "www"
+    run(["node", str(root / "tools" / "make-dist.mjs")], cwd=root, env=os.environ.copy())
+    if not (dist_www / "index.html").is_file():
+        die("tools/make-dist.mjs did not produce dist/www/index.html")
     # aapt2's -A packs the *contents* of this folder as the APK's assets/, so the
     # game ends up at assets/www and MainActivity can load
     # file:///android_asset/www/index.html
     www = build_dir / "assets" / "www"
     if www.exists():
         shutil.rmtree(www)
-    www.mkdir(parents=True)
-    shutil.copy2(root / "index.html", www / "index.html")
-    for folder in ("css", "js"):
-        src = root / folder
-        if not src.is_dir():
-            die(f"Missing {folder}/ next to index.html in {root}")
-        shutil.copytree(src, www / folder)
+    shutil.copytree(dist_www, www)
     files = [p for p in www.rglob("*") if p.is_file()]
     size_kb = sum(p.stat().st_size for p in files) / 1024
     say(f"{len(files)} files, {size_kb:.0f} KB")
@@ -422,6 +425,11 @@ def verify_apk(root: Path, apk: Path, sdk_arg: str | None, java_arg: str | None)
     failures = []
 
     # ---- 1. asset parity -------------------------------------------------
+    # against the compiled build, because that is what the APK is made from now:
+    # the sources are not inside it at all
+    dist_www = root / "dist" / "www"
+    if not (dist_www / "index.html").is_file():
+        run(["node", str(root / "tools" / "make-dist.mjs")], cwd=root, env=os.environ.copy())
     with zipfile.ZipFile(apk) as z:
         names = z.namelist()
         assets = [n for n in names if n.startswith("assets/www/") and not n.endswith("/")]
@@ -431,7 +439,7 @@ def verify_apk(root: Path, apk: Path, sdk_arg: str | None, java_arg: str | None)
         differing = []
         for name in assets:
             rel = name[len("assets/www/"):]
-            disk = root / rel
+            disk = dist_www / rel
             if not disk.is_file():
                 missing.append(rel)
                 continue
@@ -442,24 +450,36 @@ def verify_apk(root: Path, apk: Path, sdk_arg: str | None, java_arg: str | None)
         say(f"assets   {len(assets)} compared, {len(missing)} missing, {len(differing)} different")
         for rel in (missing + differing)[:12]:
             failures.append(f"asset out of date inside the APK: {rel}")
-        # every project file has to be in there too, not just the other way round
-        expected = [p for p in (root / "index.html", root / "css", root / "js")
-                    if p.exists()]
-        project_files = []
-        for p in expected:
-            if p.is_file():
-                project_files.append(p)
-            else:
-                project_files += [f for f in p.rglob("*") if f.is_file()]
+        # The whole reason the game is compiled before it ships: unzipping the
+        # APK must not hand over the repository. If a source file ever appears
+        # in there again, this is what says so.
+        readable = [n for n in assets
+                    if n.startswith(("assets/www/js/game/", "assets/www/js/entities/",
+                                     "assets/www/js/world/", "assets/www/js/core/",
+                                     "assets/www/js/render/", "assets/www/js/fx/",
+                                     "assets/www/js/law/", "assets/www/js/ai/",
+                                     "assets/www/js/missions/"))
+                    or n in ("assets/www/app.js",)]
+        if not any(n == "assets/www/app.js" for n in assets):
+            failures.append("the APK has no compiled app.js - the game was not staged")
+        if readable and any(n != "assets/www/app.js" for n in readable):
+            for rel in [n for n in readable if n != "assets/www/app.js"][:6]:
+                failures.append(f"readable source inside the APK: {rel}")
+        say(f"source   {len(readable) - (1 if readable else 0)} source files inside "
+            f"(must be 0), app.js {'present' if any(n == 'assets/www/app.js' for n in assets) else 'MISSING'}")
+
+        # and every file the build produced has to be in there, not just the
+        # other way round: a file make-dist wrote that the APK somehow dropped
+        project_files = [f for f in dist_www.rglob("*") if f.is_file()]
         in_apk = set(assets)
         absent = []
         for f in project_files:
-            rel = f.relative_to(root).as_posix()
+            rel = f.relative_to(dist_www).as_posix()
             if "assets/www/" + rel not in in_apk:
                 absent.append(rel)
         for rel in absent[:12]:
-            failures.append(f"the APK is missing project file: {rel}")
-        say(f"coverage {len(project_files)} project files, "
+            failures.append(f"the APK is missing a file the build produced: {rel}")
+        say(f"coverage {len(project_files)} built files, "
             f"{len(absent)} missing from the APK")
 
         # ---- manifest facts ---------------------------------------------

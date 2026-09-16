@@ -22,7 +22,8 @@ compiled from source at build time.
 | | |
 | --- | --- |
 | Python | 3.8+ for the build script |
-| Node | for `windows/tools/make-ico.cjs`, the icon packer |
+| Node | for the distribution build (`tools/make-dist.mjs`) and the icon packer |
+| Closure Compiler | `closure.jar`, fetched on demand into `~/.kilotools`: it compiles the game before it is packaged |
 | Compiler | `csc.exe` (in Windows) |
 | Runtime on the target PC | .NET Framework 4.x (in Windows 10 and 11) |
 
@@ -34,6 +35,7 @@ network - so the install is the build in a folder plus a way to see it:
 | | |
 | --- | --- |
 | Installs to | `%LOCALAPPDATA%\Programs\The Wild West` |
+| Installs | the compiled build from `dist/www`, not the sources: the setup file is opened by strangers, and it must not hand them the repository |
 | Shortcut | Start Menu (and the desktop, if you tick the box) |
 | Opens it with | Microsoft Edge in application mode: a window of its own, no address bar, no tabs |
 | If Edge is missing | the shortcut falls back to your default browser |

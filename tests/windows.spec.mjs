@@ -65,16 +65,21 @@ test.describe('the windows build', () => {
       execFileSync(SETUP, ['--portable', `--dir=${target}`], { timeout: 300000 });
 
       for (const name of ['index.html', 'READ-ME.txt', 'css/base.css',
-        'js/game/splash.js', 'js/vendor/three.min.js']) {
+        'app.js', 'js/vendor/three.min.js']) {
         expect(existsSync(path.join(target, name)), `${name} installed`).toBe(true);
+      }
+      // and nothing readable in there: the installed copy is the compiled build,
+      // which is the whole reason the installer carries dist/www and not the repo
+      for (const dir of ['js/game', 'js/entities', 'js/world', 'js/core']) {
+        expect(existsSync(path.join(target, dir)), `${dir} must not be installed`).toBe(false);
       }
       const files = readdirSync(target, { recursive: true }).length;
       const bytes = readdirSync(target, { recursive: true })
         .map(f => path.join(target, f))
         .filter(f => existsSync(f) && statSync(f).isFile())
         .reduce((n, f) => n + statSync(f).size, 0);
-      expect(files, 'the whole game is there').toBeGreaterThan(50);
-      expect(bytes, 'and it is the real build, not a stub').toBeGreaterThan(500_000);
+      expect(files, 'the whole game is there').toBeGreaterThan(4);
+      expect(bytes, 'and it is the real build, not a stub').toBeGreaterThan(600_000);
     } finally {
       rmSync(scratch, { recursive: true, force: true, maxRetries: 5 });
     }

@@ -31,6 +31,8 @@ PowerShell script is a thin wrapper so Windows users have a native entry point.
 | JDK | 17 or newer (Android Studio bundles one at `C:\Program Files\Android\Android Studio\jbr`) |
 | Android SDK | `build-tools` and a `platform`, e.g. `sdkmanager "build-tools;34.0.0" "platforms;android-34"` |
 | Python | 3.8+ for the command line build (or use the Gradle route and skip Python) |
+| Node | for `tools/make-dist.mjs`, which compiles the game before it is packaged |
+| Closure Compiler | `closure.jar` in `~/.kilotools`. Without it the build still runs, but the game ships as flattened source instead of compiled |
 | For Gradle route | Android Studio, or Gradle 8.7+ (the wrapper is not committed) |
 
 Neither the JDK nor the SDK has to be on your PATH: the script finds them in the
