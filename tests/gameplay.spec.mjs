@@ -176,6 +176,64 @@ test.describe('gunplay', () => {
   });
 });
 
+test.describe('aiming', () => {
+  test('the crosshair marks where the bullet goes, and your own body is never under it', async ({ game }) => {
+    const log = await resetGame(game);
+    const rows = await game.evaluate(async () => {
+      const out = [];
+      const cross = document.getElementById('crosshair').getBoundingClientRect();
+      const centre = { x: innerWidth / 2, y: innerHeight / 2 };
+      const box = new THREE.Box3();
+      const v = new THREE.Vector3();
+      // no part of your own body may sit under the crosshair, so compare whole bounding
+      // boxes rather than a single point: a hat or a horse's neck is enough to look wrong
+      const coversCentre = obj => {
+        box.setFromObject(obj);
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < 8; i++) {
+          v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera);
+          const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
+          minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+        return minX < centre.x && centre.x < maxX && minY < centre.y && centre.y < maxY;
+      };
+      const fire = async label => {
+        npcs.forEach(n => { if (n.g.position.distanceTo(player.g.position) < 14) n.g.position.set(-124, heightAt(-124, -124), -124); });
+        for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+        lastShot = 0;
+        shoot();
+        for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+        out.push({
+          label,
+          shooterUnder: coversCentre(mounted ? horse.g : player.g),
+          horseUnder: mounted && coversCentre(horse.g),
+          reach: +player.g.position.distanceTo(lastShotEnd).toFixed(1)
+        });
+      };
+      // the crosshair sits at the centre of the view: that is the contract
+      out.push({
+        crosshairAtCentre: Math.abs(cross.x + cross.width / 2 - centre.x) < 1 &&
+          Math.abs(cross.y + cross.height / 2 - centre.y) < 1
+      });
+      await fire('on foot, hip');
+      aiming = true; await fire('on foot, aiming'); aiming = false;
+      horse.g.position.set(player.g.position.x + 1, player.g.position.y, player.g.position.z);
+      toggleMount();
+      await fire('mounted, hip');
+      aiming = true; await fire('mounted, aiming'); aiming = false;
+      return out;
+    });
+    expect(rows[0].crosshairAtCentre, 'the crosshair is the centre of the view').toBe(true);
+    for (const r of rows.slice(1)) {
+      expect(r.shooterUnder, r.label + ': yourself under the crosshair').toBe(false);
+      expect(r.horseUnder, r.label + ': your horse under the crosshair').toBe(false);
+      expect(r.reach, r.label + ': the shot stopped on something of yours').toBeGreaterThan(60);
+    }
+    expectNoErrors(log);
+  });
+});
+
 test.describe('damage and death', () => {
   test('damage drains hearts, zero kills the player, and the desert bites outside the camp', async ({ game }) => {
     await resetGame(game);

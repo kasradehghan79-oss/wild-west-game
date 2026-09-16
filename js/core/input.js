@@ -80,6 +80,8 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyF' && !e.repeat && nearStore()) openShop();
   if (e.code === 'Digit1') switchWeapon('revolver');
   if (e.code === 'Digit2') switchWeapon('rifle');
+  if (e.code === 'Digit3') switchWeapon('knife');
+  if (e.code === 'KeyV') cycleWeapon(1);
   if (e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });

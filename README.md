@@ -15,7 +15,7 @@ Android APK (see [Android](#android)).
 | Double-click | open `index.html` | Works: all resources are plain files next to it (verified over `file://`). |
 | Local server | `serve.cmd` (or any static server) | Use this if a browser blocks `file://` sub-resources, or if you add ES modules later. |
 | Android | `android\build-apk.ps1` | Builds and signs `dist\The Wild West.apk`. See [Android](#android). |
-| Phone / tablet | open it, or install the APK | On-screen controls appear automatically: stick to move (push to the rim to sprint), drag to look, plus fire, aim, reload, jump, mount, store and pause. |
+| Phone / tablet | open it, or install the APK | On-screen controls appear automatically: stick to move (push to the rim to sprint), drag to look, plus fire, aim, reload, weapon switch, mount, store and pause. |
 
 three.js is vendored in `js/vendor/three.min.js`, so nothing is fetched from the
 network — the game runs fully offline in a browser and inside the APK.
@@ -141,6 +141,16 @@ to by whoever needs to register something.
 (which registers collision blockers), then vegetation and props (which skip
 positions where `collide()` is true). That is why grass avoids the buildings.
 
+**The camera is over the shoulder, and the shot leaves from that eye.** The camera
+block in `js/game/loop.js` holds it a little to one side of the player, further over
+when aiming and higher in the saddle (at the rider's eyes, looking over the horse),
+so your own body, hat or horse's neck never sits under the crosshair. The crosshair
+is the centre of the view, and `shoot()` in `js/entities/shooting.js` casts from the
+same camera along the same direction, discarding hits nearer than the player and, in
+the saddle, the horse: a shot cannot stop on your own mount or on a man standing
+behind you. `tests/gameplay.spec.mjs` (`aiming`) asserts both halves from the real
+shot path.
+
 ---
 
 ## Game states, events and saves
@@ -245,6 +255,42 @@ The tuning baseline sits at **HARD**: GUNHAND's numbers are the ones the game wa
 balanced around, and the two levels below it are progressively softer so there is
 room to learn. DEPUTY (the default) is one notch gentler than that baseline, and
 GREENHORN below it is gentler again.
+
+---
+
+## The knife, and silence
+
+The player always carries a knife, alongside the guns. It is a weapon first and a lethal
+one: anyone within arm's reach (2m) dies to a single blow. **The sheriff is the only
+exception** - he takes two, because he is the round's target.
+
+A swing is an animation rather than an instant result. He draws the blade back and turns
+his shoulder, drives it through with his body behind it, and settles back to guard; the
+blow lands at the impact frame partway through, so distance and facing are judged at the
+moment the knife arrives, not when the button went down. A man who has stepped out of
+reach is not stabbed.
+
+- **A backstab** - a man whose back is turned, who has not seen you, at 1.6m or less -
+  kills him outright, with no shot, no shout and no noise at all.
+- **Nobody hears it, so nobody reports it.** The wanted level is derived from the
+  crimes the law *hears about*, and a crime only reaches the law through a witness
+  (see the law system above). Kill a man in an empty alley and the record stays clean:
+  no heat, no wanted level, no posse. Do it in front of a lawman and it is a murder
+  like any other.
+- **An ordinary stab is not silent.** It makes a noise that nearby men will come and
+  investigate, and it is a crime when anyone is watching.
+- Backstabbing is not a free pass: it needs the man unaware *and* facing away, so it
+  rewards reading a scene rather than walking in swinging.
+
+| Weapon | Where it comes from | Damage | Notes |
+| --- | --- | --- | --- |
+| Revolver | carried | 1.0 | 8 rounds |
+| Winchester | bought at the store | 1.75 | 10 rounds |
+| **Knife** | carried | lethal | one blow kills anyone; two for the sheriff; silent from behind. No ammo, 2m reach |
+
+Switch weapons with `1` / `2` / `3`, cycle with `V`, or on a phone tap the switch
+button in the top-left strip (the ammo readout shows `—` for the knife, since it has
+nothing to count).
 
 ---
 

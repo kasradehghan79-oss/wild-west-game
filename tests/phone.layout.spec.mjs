@@ -50,7 +50,7 @@ test.describe('touch layout', () => {
         fsDisplay: document.getElementById('btnFs').style.display,
         inFullscreen: !!document.fullscreenElement,
         help: box('#btnHelp'),
-        jump: box('.tbtn.jump')
+        nearest: box('.tbtn.reload')
       };
     });
     expect(chrome.touch).toBe(true);
@@ -61,9 +61,9 @@ test.describe('touch layout', () => {
     // purpose, so what matters here is that it is laid out and not hidden in the app
     expect(chrome.inFullscreen || chrome.fsDisplay === 'flex' || chrome.fsDisplay === '',
       'the touch fullscreen button is available: ' + JSON.stringify(chrome.fsDisplay)).toBe(true);
-    const gapX = chrome.jump.x - (chrome.help.x + chrome.help.w);
-    const gapY = chrome.jump.y - (chrome.help.y + chrome.help.h);
-    expect(Math.max(gapX, gapY), 'the help glyph clears JUMP').toBeGreaterThan(50);
+    const gapX = chrome.nearest.x - (chrome.help.x + chrome.help.w);
+    const gapY = chrome.nearest.y - (chrome.help.y + chrome.help.h);
+    expect(Math.max(gapX, gapY), 'the help glyph clears the combat cluster').toBeGreaterThan(50);
   });
 
   test('the help panel opens into free space and fits on screen', async ({ game }) => {
@@ -72,7 +72,7 @@ test.describe('touch layout', () => {
     await game.waitForFunction(() => getComputedStyle(helpText).display === 'block');
     const help = await game.evaluate(() => {
       const panel = helpText.getBoundingClientRect();
-      const others = ['#vitals', '.tbtn.fire', '.tbtn.aim', '.tbtn.jump', '.tbtn.reload', '#rightpanel', '#hud', '#score']
+      const others = ['#vitals', '.tbtn.fire', '.tbtn.aim', '.tbtn.reload', '#rightpanel', '#hud', '#score']
         .map(s => document.querySelector(s)).filter(Boolean)
         .map(el => ({ id: el.id || el.className, r: el.getBoundingClientRect() }));
       const hits = [];

@@ -65,6 +65,9 @@
   #hearts i.on u { box-shadow: 0 0 8px rgba(255,70,50,.6); }
   #stamwrap { height: 9px; background: rgba(0,0,0,.6); border: 1px solid rgba(211,169,92,.55); margin-bottom: 8px; }
   #stamfill { display: block; height: 100%; width: 100%; background: linear-gradient(180deg, #8fd96a, #3f8f30); transition: background .2s; }
+  #gait { display: none; font-size: 11px; letter-spacing: 3px; color: #d3c4a2; margin: 2px 0 3px;
+    text-shadow: 0 1px 3px #000; }
+  #gait.on { display: block; }
   #ammo { display: flex; align-items: baseline; gap: 8px; }
   #ammoCount { font-size: 25px; letter-spacing: 1px; color: var(--gold2); text-shadow: 0 2px 5px #000; }
   #ammoCount.empty { color: #ff5a48; animation: pulse .5s infinite; }

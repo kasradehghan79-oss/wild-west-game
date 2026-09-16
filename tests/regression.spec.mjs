@@ -35,10 +35,12 @@ test.describe('things that used to run while the game was frozen', () => {
     expect(wantedAfterShop, 'the wanted level did not decay in the store').toBe(3);
     await game.evaluate(() => closeShop());
 
-    // and it all comes back to life. Calm the town first: with a wanted level up,
-    // an NPC landing a shot would reset the healing timer mid-check.
+    // and it all comes back to life. The record is cleared first, not just the wanted
+    // number: the law derives the level from its record, so assigning wanted = 0 would last
+    // exactly one frame before the posse was back, and one shot landing mid-probe resets
+    // the healing timer this check is about.
     await game.waitForFunction(() => Mode.live());
-    await game.evaluate(() => { wanted = 0; wantedT = 0; hp = 3; sinceDmg = 60; });
+    await game.evaluate(() => { Law.clearRecord(); hp = 3; sinceDmg = 60; });
     const awake = await probe(game, 8);
     expect(awake.roundTDelta, 'the clock runs again').toBeLessThan(0);
     expect(awake.hpDelta, 'healing runs again').toBeGreaterThan(0);

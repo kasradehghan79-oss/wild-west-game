@@ -16,6 +16,13 @@ const houseMarkers = [[-18, -14], [-4, -17], [10, -15], [20, -8], [-22, 6], [-16
 const dirV = new THREE.Vector3(), backV = new THREE.Vector3();
 let frame = 0, camDistMul = 1, heartT = 0, envTimer = 0.1;
 let landK = 0, smoothTurn = 0, slopeP = 0, slopeR = 0;
+// How each weapon sits in the hand: [rest xyz] and [aim y z]. Adding a weapon is a row
+// here and an entry in WEAPONS, rather than another ternary in five places.
+const WEAPON_POSE = {
+  revolver: { rest: [1.22, -0.358, 0.066], aim: [-0.24, 0.05], bothHands: false },
+  rifle: { rest: [1.5, -0.3, 0.12], aim: [-0.22, 0.02], bothHands: true },
+  knife: { rest: [1.4, -0.33, 0.1], aim: [-0.42, 0.08], bothHands: false }
+};
 deadEl.addEventListener('click', e => { e.stopPropagation(); nextAfterEnd(); });
 
 function playerInputVector() {
@@ -58,16 +65,31 @@ function animate() {
 
   // ---------------- mounted ----------------
   if (active && mounted) {
-    const fwdKey = keys['KeyW'] || keys['ArrowUp'];
-    const backKey = keys['KeyS'] || keys['ArrowDown'];
-    const galloping = (keys['ShiftLeft'] || keys['ShiftRight']) && fwdKey && stam > 0 && !stamLock;
+    // Touch has a real stick, so it gets an analog hand on the reins: how hard it is
+    // pushed forward is the gait, how far it leans is the turn. The keyboard keeps its two
+    // gears, W and Shift.
+    const stick = (isTouch && window.touchStick) ? window.touchStick : null;
+    const push = stick ? clamp(-stick.y, 0, 44) : 0;          // 0..44 px forward
+    const gait = stick ? (push < 18 ? 3.4 : push < 30 ? 6.8 : 11.5) : 9;
+    const fwdKey = keys['KeyW'] || keys['ArrowUp'] || (stick && push > 8);
+    const backKey = keys['KeyS'] || keys['ArrowDown'] || (stick && stick.y > 10);
+    // A gallop is the rim of the stick for touch, Shift on a keyboard, and it costs the
+    // rider's wind either way.
+    const galloping = (keys['ShiftLeft'] || keys['ShiftRight'] || (stick && push > 38)) &&
+      fwdKey && stam > 0 && !stamLock;
     if (galloping) { sprinting = true; stam = Math.max(0, stam - 18 * dt); if (stam <= 0) stamLock = true; }
-    const throttle = fwdKey ? (galloping ? 15 : 9) : backKey ? -2.5 : 0;
+    const throttle = fwdKey ? (galloping ? 15 : gait) : backKey ? -2.5 : 0;
     horse.speed = lerp(horse.speed, throttle, Math.min(1, dt * (throttle > horse.speed ? 0.9 : 2.2)));
-    const turning = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : (keys['KeyD'] || keys['ArrowRight']) ? -1 : 0;
-    if (turning) {
+    // Steering is reins, not a turntable. The stick leans proportionally, and the turn
+    // rate *falls* as the horse speeds up: at a walk he pivots on a coin, at a gallop he
+    // carves a wide arc. That is what makes riding fast a decision instead of a way to spin
+    // on the spot, and it is why the camera follows the horse rather than the stick.
+    const turnKey = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : (keys['KeyD'] || keys['ArrowRight']) ? -1 : 0;
+    const turning = stick ? clamp(-stick.x / 34, -1, 1) : turnKey;
+    if (Math.abs(turning) > 0.06) {
       const dir = horse.speed < 0 ? -1 : 1;
-      horse.g.rotation.y += turning * dir * (0.5 + Math.abs(horse.speed) * 0.15) * dt;
+      const turnRate = clamp(2.7 - Math.abs(horse.speed) * 0.115, 0.85, 2.7);
+      horse.g.rotation.y += turning * dir * turnRate * dt;
     }
     if (keys['Space'] && horse.airY < 0.02) { horse.vy = 5.4; Sound.gallop(3); }
     horse.vy -= GRAVITY * dt;
@@ -244,11 +266,12 @@ function animate() {
   // ---------------- weapon / aim pose ----------------
   aimAmt = lerp(aimAmt, (aiming && !playerDead && active) ? 1 : 0, Math.min(1, dt * 8));
   const wObj = gunObj();
-  const restX = curWeapon === 'rifle' ? 1.5 : 1.22;
-  const restY = curWeapon === 'rifle' ? -0.3 : -0.358;
-  const restZ = curWeapon === 'rifle' ? 0.12 : 0.066;
-  const aimY = curWeapon === 'rifle' ? -0.22 : -0.24;
-  const aimZ = curWeapon === 'rifle' ? 0.02 : 0.05;
+  const P = WEAPON_POSE[curWeapon] || WEAPON_POSE.revolver;
+  const restX = P.rest[0];
+  const restY = P.rest[1];
+  const restZ = P.rest[2];
+  const aimY = P.aim[0];
+  const aimZ = P.aim[1];
   const kick = recoilKick;
   if (aimAmt > 0.01 && !mounted) {
     player.g.rotation.y = lerpAngle(player.g.rotation.y, yaw + Math.PI, Math.min(1, dt * 9));
@@ -258,7 +281,7 @@ function animate() {
     const pitchAdj = aiming ? pitch : 0;
     player.armR.rotation.x = lerp(player.armR.rotation.x, -Math.PI / 2 + pitchAdj - (playerFireT > 0 ? 0 : 0.2), Math.min(1, dt * 13));
     player.elbowR.rotation.x = lerp(player.elbowR.rotation.x, playerFireT > 0 ? 0 : 0.2, Math.min(1, dt * 13));
-    if (curWeapon === 'rifle') {
+    if (P.bothHands) {
       player.armL.rotation.x = lerp(player.armL.rotation.x, -Math.PI / 2 - 0.45, Math.min(1, dt * 11));
       player.elbowL.rotation.x = lerp(player.elbowL.rotation.x, 0.55, Math.min(1, dt * 11));
     }
@@ -274,13 +297,55 @@ function animate() {
       player.g.rotation.y = lerpAngle(player.g.rotation.y, Math.atan2(fx2, fz2), Math.min(1, dt * 12));
     }
   }
+  // ---------------- the knife swing ----------------
+  // Three phases, which is what makes it read as a knife rather than a number going down:
+  // he draws the blade back and turns his shoulder (anticipation), drives it through and
+  // turns his body into it (the strike, where the blow lands), then settles back to guard.
+  // The strike is snappier than the other two, because that is where the weight is.
+  if (knifeSwingT >= 0 && !mounted && active) {
+    const W = WEAPONS.knife;
+    knifeSwingT += dt;
+    const p = clamp(knifeSwingT / W.swing, 0, 1);
+    const phase = p < 0.26 ? 'wind' : p < 0.56 ? 'strike' : 'recover';
+    const pose = phase === 'wind' ? { arm: -0.30, armZ: 0.55, elbow: -1.70, twist: 0.42, lean: -0.06 }
+      : phase === 'strike' ? { arm: -1.85, armZ: -0.45, elbow: -0.10, twist: -0.50, lean: 0.10 }
+        : { arm: -0.85, armZ: 0, elbow: -1.15, twist: 0, lean: 0 };
+    const speed = phase === 'strike' ? 30 : 13;
+    const k = Math.min(1, dt * speed);
+    player.armR.rotation.x = lerp(player.armR.rotation.x, pose.arm, k);
+    player.armR.rotation.z = lerp(player.armR.rotation.z, pose.armZ, k);
+    player.elbowR.rotation.x = lerp(player.elbowR.rotation.x, pose.elbow, k);
+    // the body turns into the blow: shoulders and hips, which is where a swing's power
+    // actually comes from
+    if (player.chest) player.chest.rotation.y = lerp(player.chest.rotation.y, pose.twist, k);
+    if (player.torso) player.torso.rotation.y = lerp(player.torso.rotation.y, pose.twist * 0.6, k);
+    player.chest.rotation.x = lerp(player.chest.rotation.x, pose.lean, k);
+    // the wrist snap: the last few degrees are what make a slash look sharp
+    if (typeof knife === 'object') {
+      const wrist = phase === 'wind' ? 0.45 : phase === 'strike' ? -0.55 : 0;
+      knife.rotation.x = lerp(knife.rotation.x, 1.4 + wrist, Math.min(1, dt * (phase === 'strike' ? 28 : 12)));
+    }
+    // and the blow lands here, once, at the impact frame
+    if (!knifeSwingHit && knifeSwingT >= W.impact) {
+      knifeSwingHit = true;
+      resolveKnifeHit();
+    }
+    if (p >= 1) {
+      knifeSwingT = -1;
+      if (player.chest) player.chest.rotation.y = 0;
+      if (player.torso) player.torso.rotation.y = 0;
+      player.chest.rotation.x = 0;
+      player.armR.rotation.z = 0;
+    }
+  }
+
   if (reloading) {
     reloadT += dt;
     const k = Math.sin(clamp(reloadT / reloadDur, 0, 1) * Math.PI);
     wObj.rotation.z = k * 0.55;
     player.armR.rotation.x = lerp(player.armR.rotation.x, -1.1 - k * 0.25, Math.min(1, dt * 10));
     player.elbowR.rotation.x = lerp(player.elbowR.rotation.x, -1.0, Math.min(1, dt * 10));
-    if (curWeapon === 'rifle') {
+    if (P.bothHands) {
       player.armL.rotation.x = lerp(player.armL.rotation.x, -1.2, Math.min(1, dt * 10));
       player.elbowL.rotation.x = lerp(player.elbowL.rotation.x, -0.6, Math.min(1, dt * 10));
     }
@@ -395,7 +460,22 @@ function animate() {
   const focusY = mounted ? horse.g.position.y + 2.3 : player.g.position.y + 1.62 + aimAmt * 0.7;
   const fx3 = (mounted ? horse.g.position.x : player.g.position.x);
   const fz3 = (mounted ? horse.g.position.z : player.g.position.z);
-  const shoulder = aimAmt * (mounted ? 0.32 : 0.62);
+  // ---------------- touch camera follow ----------------
+  // On a phone there is no mouse to steer the view with, so while riding or aiming the
+  // camera trails the player's heading like a chase camera: push the stick forward and the
+  // view comes round behind him, the way it does in a first person game. Three things keep
+  // it from fighting the player: it only runs when the stick is pushed *forward* (aligning
+  // on a strafe would chase its own tail, because movement is camera relative), it stops
+  // the moment a thumb is on the glass, and it is touch only - a mouse already aims.
+  if (isTouch && (mounted || aiming) && keys['KeyW'] && !(window.touchLooking && window.touchLooking())) {
+    yaw = lerpAngle(yaw, player.g.rotation.y - Math.PI, Math.min(1, dt * 2.2));
+  }
+
+  // The camera always sits a little to one side, not only when aiming. It used to be dead
+  // behind until you raised the sights, which put the player - or the horse's head - exactly
+  // under the crosshair, so hip firing meant shooting past your own hat and every mounted
+  // shot had to be aimed around your horse. Aiming pulls the view further over.
+  const shoulder = (mounted ? 0.72 : 0.6) + aimAmt * (mounted ? 0.24 : 0.3);
   const wantDist = (mounted ? 6.4 : 4.6) - aimAmt * (mounted ? 0.4 : 1.5);
   // rotational screen shake: jitter the view, never the stored yaw/pitch
   const vYaw = yaw + shake * rnd(-0.028, 0.028);
@@ -411,7 +491,10 @@ function animate() {
   camDistMul = lerp(camDistMul, camWant, Math.min(1, dt * (camWant < camDistMul ? 40 : 9)));
   const back = wantDist * camDistMul;
   const camX = fx3 - dirV.x * back + rightX * shoulder;
-  let camY = focusY - dirV.y * back - aimAmt * 0.25;
+  // in the saddle the camera rides at the rider's eyes, looking over the horse: from lower
+  // down, the horse's neck and head sit right on the crosshair and every shot is fired past
+  // your own mount
+  let camY = focusY - dirV.y * back + (mounted ? 0.55 : 0) + aimAmt * (mounted ? 0.2 : -0.25);
   const camZ = fz3 - dirV.z * back + rightZ * shoulder;
   camY = Math.max(camY, heightAt(camX, camZ) + 0.45);
   camera.position.set(camX, camY, camZ);

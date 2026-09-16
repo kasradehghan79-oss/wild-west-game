@@ -99,6 +99,7 @@ function startRound() {
   npcs.forEach(n => {
     n.dead = false; n.fall = 0;
     n.deathTwist = undefined; n.deathRoll = undefined; n.deathArm = undefined;
+    n.knifeHits = 0;
     n.hp = Difficulty.foeHp(n.archetype === 'sheriff' ? ARCH.sheriff.hp + Math.min(5, roundNum - 1) : ARCH[n.archetype].hp + Math.floor((roundNum - 1) / 2));
     n.g.position.set(n.spawn.x, n.spawn.y, n.spawn.z);
     n.g.rotation.set(0, n.spawn.rot, 0);

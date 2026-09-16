@@ -48,6 +48,10 @@ if (isTouch) {
         // pushing the stick to its edge sprints, so touch players get the run the
         // keyboard gets from Shift, without another button on screen
         keys['ShiftLeft'] = d > 38;
+        if (d > 14) hintUsed();
+        // The raw stick, for anything that wants an analog reading rather than a key: the
+        // horse's reins use how hard it is pushed and which way it leans.
+        window.touchStick = { x: dx, y: dy, d };
       } else if (lookT[t.identifier]) {
         const p = lookT[t.identifier];
         const dx = t.clientX - p.x;
@@ -64,6 +68,7 @@ if (isTouch) {
     for (const t of e.changedTouches) {
       if (t.identifier === moveId) {
         moveId = null;
+        window.touchStick = null;
         stick.style.display = 'none';
         for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft']) keys[k] = false;
       }
@@ -116,6 +121,34 @@ if (isTouch) {
   // Published on window because this entire layer is scoped by the isTouch block: the
   // frame loop asks for window.touchLook, and a bare declaration in here is invisible.
   window.touchLook = touchLookInner;
+  // the camera uses this to know when a thumb is on the glass: an auto-follow must never
+  // fight the player for the view
+  window.touchLooking = () => lookHeld || Object.keys(lookT).length > 0;
+
+  /* The controls get out of the way when they are not in use. After a couple of seconds
+     without a touch the whole layer fades back, and the first touch brings it up again -
+     so the screen is the game's unless you are reaching for something. */
+  const layer = document.getElementById('touchUI');
+  const hint = document.getElementById('touchhint');
+  let dimT = null, hintT = null;
+  function wakeControls() {
+    if (layer) layer.classList.remove('dim');
+    clearTimeout(dimT);
+    // never dim while a finger is down: mid-drag is exactly when you need to see them
+    if (moveId !== null || Object.keys(lookT).length) return;
+    dimT = setTimeout(() => { if (layer && moveId === null && !Object.keys(lookT).length) layer.classList.add('dim'); }, 2600);
+  }
+  window.addEventListener('touchstart', wakeControls, { passive: true });
+  window.addEventListener('touchend', wakeControls, { passive: true });
+
+  // Onboarding text earns its space once and then gives it back: the first time the
+  // player moves, the hint line starts a timer and fades out.
+  function hintUsed() {
+    if (!hint || hintT) return;
+    hintT = setTimeout(() => hint.classList.add('fade'), 9000);
+  }
+  // a phone has no number keys, so the weapon switch is a button of its own, in the
+  // top left strip where neither thumb lives
   // Backgrounding the app can swallow the touchend, which would leave the stick
   // stuck on screen and its identifier claimed forever. Drop everything instead.
   const releaseAllTouch = () => {
@@ -139,7 +172,10 @@ if (isTouch) {
   const setAim = v => { aiming = v; if (btnAimEl) btnAimEl.classList.toggle('active', v); };
   bindBtn('btnAim', () => setAim(!aiming));
   bindBtn('btnReload', () => startReload());
-  bindBtn('btnJump', () => { keys['Space'] = true; setTimeout(() => { keys['Space'] = false; }, 130); });
+  wakeControls();
+  // a phone has no number keys, so the weapon switch is a button of its own, in the
+  // top left strip where neither thumb lives
+  bindBtn('btnWeapon', () => cycleWeapon(1));
   // without this a phone has no way to pause, and therefore no way to reach the
   // quality, volume and look settings
   bindBtn('btnPause', () => setPaused(true));

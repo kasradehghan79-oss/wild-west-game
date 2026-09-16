@@ -123,7 +123,7 @@ const Save = (() => {
       horse: { x: nn(h.x, -140, 140, 3), z: nn(h.z, -140, 140, 1.5), rot: nn(h.rot, -1e3, 1e3, 2.5) },
       wallet: { cash: Math.round(nn(wl.cash, 0, 1e7, 0)) },
       weapons: {
-        cur: w.cur === 'rifle' ? 'rifle' : 'revolver',
+        cur: (w.cur === 'knife') ? 'knife' : (w.cur === 'rifle' ? 'rifle' : 'revolver'),
         revolver: { owned: true, ammo: Math.round(nn(wp.ammo, 0, 99, WEAPONS.revolver.mag)) },
         rifle: { owned: bool(wr.owned), ammo: Math.round(nn(wr.ammo, 0, 99, 0)) }
       },
@@ -209,7 +209,8 @@ const Save = (() => {
     upgrades.rifle = data.upgrades.rifle;
     playerWeapons.revolver.owned = true;
     playerWeapons.rifle.owned = data.weapons.rifle.owned;
-    curWeapon = (data.weapons.cur === 'rifle' && data.weapons.rifle.owned) ? 'rifle' : 'revolver';
+    curWeapon = (data.weapons.cur === 'knife') ? 'knife'
+      : (data.weapons.cur === 'rifle' && data.weapons.rifle.owned) ? 'rifle' : 'revolver';
     // hold the mission layer off while the world is rebuilt, then hand it the save
     Missions.suspend(true);
     startRound();

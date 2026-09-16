@@ -21,6 +21,10 @@ let matchState = 'intro', paused = false, shopOpen = false;
 let playerShotT = 0;
 // when public gunfire last opened a case: it is rate limited, so it has to be declared
 let lastGunCrime = -99;
+// where the last bullet stopped, for the aim tests to measure against
+let lastShotEnd = null;
+// the knife swing, in seconds: -1 means idle. The blow lands partway through it.
+let knifeSwingT = -1, knifeSwingHit = false;
 let cash = 0, shake = 0, runT = 0, vy = 0, grounded = true, gallopT = 0;
 let totalKills = 0, headshots = 0, survivedRounds = 0, hp = 5;
 // wall clock seconds actually played, kept for the save screen

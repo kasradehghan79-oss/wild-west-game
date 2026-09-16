@@ -1,7 +1,7 @@
 /* ==========================================================================
    The Wild West - js/entities/weapon-models.js
    Revolver and rifle models: shared gun geometry, materials and assembly.
-   Provides:  revSteel, revWood, makeRevolver, makeRifle
+   Provides:  revSteel, revWood, makeRevolver, makeRifle, makeKnife
    Expects:   box, mat, tmpV (declared in files loaded above)
    Classic script sharing one global scope with its siblings, so the order
    in index.html is load bearing. See README.md for the whole layout.
@@ -22,6 +22,28 @@ const gGuard = new THREE.TorusGeometry(0.017, 0.0045, 8, 18);
 const gTrigger = new THREE.BoxGeometry(0.006, 0.016, 0.006);
 const gGrip = new THREE.BoxGeometry(0.026, 0.09, 0.055);
 const gPin = new THREE.CylinderGeometry(0.005, 0.005, 0.03, 8);
+// A bowie knife: blade, guard and a leather grip. Short, because the whole point of
+// it is that you have to be close enough to hear the man breathe.
+function makeKnife() {
+  const knife = new THREE.Group();
+  const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => {
+    const o = new THREE.Mesh(geo, m);
+    o.position.set(x, y, z);
+    o.rotation.set(rx, ry, rz);
+    knife.add(o);
+  };
+  const blade = new THREE.BoxGeometry(0.007, 0.026, 0.19);
+  const edge = new THREE.BoxGeometry(0.002, 0.008, 0.185);
+  const guard = new THREE.BoxGeometry(0.03, 0.008, 0.012);
+  const grip = new THREE.CylinderGeometry(0.011, 0.013, 0.085, 8);
+  const pommel = new THREE.SphereGeometry(0.013, 8, 6);
+  add(blade, revSteel, 0, 0.008, -0.15);
+  add(edge, revDark, 0, -0.004, -0.15);
+  add(guard, revDark, 0, 0.006, -0.045);
+  add(grip, revWood, 0, -0.002, 0.02, Math.PI / 2);
+  add(pommel, revDark, 0, -0.002, 0.066);
+  return knife;
+}
 function makeRevolver() {
   const gun = new THREE.Group();
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => {

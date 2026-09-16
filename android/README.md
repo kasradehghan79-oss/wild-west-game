@@ -160,17 +160,42 @@ The build is debug-signed, which is fine for your own device but has consequence
 The web build detects a touch device (`ontouchstart` / `maxTouchPoints`) and turns
 on an on-screen control layer. Nothing extra is needed in the app for this.
 
-| Control | Where | What it does |
-| --- | --- | --- |
-| Left half drag | wherever you press | Virtual stick: walks in that direction |
-| Stick pushed to the rim | — | Sprint (the same run the keyboard gets from Shift) |
-| FIRE | bottom-right corner | Shoot (hold to keep firing) |
-| AIM | left of FIRE | Toggle aim-down-sights |
-| JUMP | above FIRE | Jump |
-| RELOAD | diagonal, inboard | Reload |
-| Context pill | bottom centre | Appears only when relevant: **OPEN STORE** at the store, **MOUNT HORSE** / **DISMOUNT** beside the horse |
-| PAUSE | top left, under the HUD | Pause menu: settings (quality, volume, look), restart |
-| Right half drag | anywhere clear of the buttons | Turn the camera |
+| Control | Size | Where | What it does |
+| --- | --- | --- | --- |
+| Left half drag | full left half | wherever you press | Virtual stick: walks in that direction |
+| Stick pushed to the rim | — | — | Sprint (the same run the keyboard gets from Shift) |
+| Right half drag | full right half | clear of the buttons | Turn the camera, with edge turning and a flick |
+| **FIRE** | 22vh (91px) | bottom-right corner | Shoot, or swing the knife: one blow kills anyone, two for the sheriff (hold to keep firing) |
+| **AIM** | 15vh (62px) | beside FIRE | Toggle aim-down-sights |
+| **RELOAD** | 13vh (54px) | above FIRE | Reload |
+| **PAUSE** | 12vh (50px) | top-left strip | Pause menu: settings (quality, volume, look), restart |
+| **WEAPON** | 12vh (50px) | top-left strip, beside `?` | Cycles revolver / Winchester / knife, since glass has no number keys |
+| **? HELP** | 12vh (50px) | top-left strip | The touch cheat sheet |
+| FULLSCREEN | 12vh (50px) | under PAUSE | Browser only: hidden inside the app |
+| Context pill | 54px tall, centred | bottom centre | Appears only when relevant: **OPEN STORE**, **MOUNT HORSE**, **DISMOUNT**, mission interactions, **BRIBE** |
+
+The combat cluster is three buttons tucked into the corner with a 1vh gap between each
+ring: **165×157px, 6.8% of a 919×413 screen**, down from 9.7% when it was four. The whole
+layer fades to 45% after a couple of seconds without a touch and lights up again under a
+thumb, and the control hint line fades out once you have moved.
+
+**The stick is a rein, not a switch.** Riding has an analog gait tied to how hard the
+stick is pushed: a nudge walks (3.4), a firm push trots (6.8), a long push canters (11.5)
+and the rim gallops (15) - and the gallop is what costs the rider wind. The stick's lean
+steers proportionally, and the **turn rate falls as the horse speeds up**: at a walk he
+pivots on a coin, at a gallop he carves a wide arc, so riding fast is a decision rather
+than a way to spin on the spot. While mounted the vitals show the gait
+(STANDING / WALK / TROT / CANTER / GALLOP), because on a phone the only feedback for how
+hard you were pushing used to be the scenery going past.
+**The camera trails the player while riding or aiming.** With the stick pushed forward and
+no thumb on the looking half, the view eases round behind the horse or the aimed stance,
+the way a chase camera does in a first person game, so steering with the stick also steers
+the view. Three things stop it fighting the player: it only runs on a *forward* push (on a
+strafe it would chase its own tail, because movement is camera relative), it stops the
+moment a finger touches the looking half, and it is touch only - a mouse already aims.
+
+Jumping is still on the keyboard (`Space`) but deliberately has no button on glass: it
+never did anything on a phone and it was costing a quarter of the cluster.
 
 The cluster is deliberately tight in the bottom-right thumb arc, leaving ~85% of
 the right half free for dragging the camera. Everything is sized and positioned in
@@ -203,7 +228,7 @@ Phone specific behaviour, all in the web build:
   already immersive); the page detects the shell through the `WildWestApp`
   JavaScript interface the activity injects. It is also hidden for *any* touch
   device through `body.touch`: the desktop glyph is laid out from the top of a
-  tall window, so on a landscape phone it landed on the JUMP button, and touch
+  tall window, so on a landscape phone it landed on the FIRE button, and touch
   already has its own fullscreen button under PAUSE.
 - **Progress survives closing the app.** Saves live in the WebView's
   `localStorage`, which Android keeps in the app's private data directory: they
@@ -215,6 +240,7 @@ Phone specific behaviour, all in the web build:
   zones: the objective name, one line per live objective with a tick when it is
   done, and one line per side job. It uses the same `--sat` safe-area inset as the
   rest of the HUD, and it is `pointer-events: none`, so it never eats a drag.
+- **The weapon switch has its own touch button** in the top-left strip beside PAUSE and the help glyph, because a phone has no number keys; it cycles revolver / Winchester / knife.
 - **The law, its witnesses and the bounty on your head are saved inside the app too**, so a wanted level survives closing the game.
 - **The AI runs identically in the app.** Perception is throttled by design (sight
   on a stagger, squad orders a few times a second), which matters more on a phone
@@ -225,7 +251,7 @@ Phone specific behaviour, all in the web build:
   bottom-centre pill and the `E` key to that action, so no new touch button was
   needed for the mission system.
 - **The `?` help glyph moves with the device.** Its desktop offset (`top: 214px`)
-  also put it on top of JUMP, so on touch it sits in the top-left strip beside
+  also put it on top of the combat cluster, so on touch it sits in the top-left strip beside
   PAUSE (50px, clear of everything) and opens a panel of *touch* controls in the
   middle of the screen - the desktop sheet, which talks about WASD and Esc, is
   hidden there.
@@ -257,7 +283,7 @@ The build was run end to end and the resulting APK was inspected:
     covered by the credit line, which made the game unstartable on a phone);
   - stick: gentle push walks, rim push sprints, release clears the keys and hides
     the stick;
-  - right-half drag turns the camera; FIRE empties a round; AIM toggles; JUMP
+  - right-half drag turns the camera; FIRE empties a round; AIM toggles; the weapon switch
     lifts the player; RELOAD reloads; MOUNT mounts the horse;
   - PAUSE opens the pause menu with the RESUME button and the quality slider on
     screen, and RESUME returns to the match;

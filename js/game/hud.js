@@ -17,9 +17,21 @@ function updateHUD(dt) {
   }
   stamFill.style.width = (stam / maxStam * 100) + '%';
   stamFill.style.background = stamLock ? 'linear-gradient(180deg,#c98a4a,#8a4a20)' : 'linear-gradient(180deg,#8fd96a,#3f8f30)';
-  if (ammoCountEl.textContent !== String(ammo)) ammoCountEl.textContent = ammo;
-  ammoCountEl.classList.toggle('empty', ammo === 0);
+  // a knife has no rounds: the readout says so rather than showing a zero that looks empty
+  const shown = isMelee(curWeapon) ? '\u2014' : String(ammo);
+  if (ammoCountEl.textContent !== shown) ammoCountEl.textContent = shown;
+  ammoCountEl.classList.toggle('empty', !isMelee(curWeapon) && ammo === 0);
   ammoNameEl.textContent = WEAPONS[curWeapon].name;
+  // While riding, the vitals say what the horse is doing. A gait has no number on it, and
+  // on a phone the only feedback for how hard the stick is pushed was the scenery going by.
+  if (gaitEl) {
+    const riding = mounted && !playerDead && matchState === 'play';
+    const sp = Math.abs(horse.speed);
+    const word = sp < 0.4 ? 'STANDING' : sp < 5 ? 'WALK' : sp < 8.5 ? 'TROT' : sp < 12.5 ? 'CANTER' : 'GALLOP';
+    const label = riding ? (horse.speed < -0.4 ? 'BACKING' : word) : '';
+    if (gaitEl.textContent !== label) gaitEl.textContent = label;
+    gaitEl.classList.toggle('on', !!label);
+  }
   reloadBar.classList.toggle('on', reloading);
   if (reloading) reloadFill.style.width = (clamp(reloadT / reloadDur, 0, 1) * 100) + '%';
   const stars = wanted > 0 ? '\u2605'.repeat(wanted) + '\u2606'.repeat(5 - wanted) : '\u2606\u2606\u2606\u2606\u2606';

@@ -122,6 +122,8 @@
   body.touch #helptext .pc { display: none; }
   body.touch #helptext .tv { display: inline; }
 
+  #touchhint { transition: opacity .6s ease; }
+  #touchhint.fade { opacity: 0; }
   #touchhint { position: fixed; bottom: calc(4px + var(--sab)); left: 50%; transform: translateX(-50%); color: #fff; font-size: 10.5px;
     opacity: .8; pointer-events: none; text-shadow: 0 1px 2px #000; white-space: nowrap; display: none; z-index: 11; }
 
@@ -140,28 +142,29 @@
          zones, and the store/mount action is a labelled pill at the bottom centre
      Safe-area insets are added on top so a notch, punch hole or gesture bar never
      swallows a control. */
+  /* One arc tucked into the corner: FIRE is the anchor under the thumb, AIM sits
+     inward of it, RELOAD above. The thumb pivots rather than travels, and nothing
+     reaches further than 26vh from the edge, which keeps the middle of the screen
+     for looking around. */
   .tbtn.fire {
-    right: calc(2.5vh + var(--sar)); bottom: calc(2.5vh + var(--sab));
-    width: min(24vh, 108px); height: min(24vh, 108px); }
+    right: calc(2vh + var(--sar)); bottom: calc(2vh + var(--sab));
+    width: min(22vh, 96px); height: min(22vh, 96px); }
   .tbtn.aim {
-    right: calc(30vh + var(--sar)); bottom: calc(4vh + var(--sab));
-    width: min(17vh, 78px); height: min(17vh, 78px); }
-  .tbtn.jump {
-    right: calc(4vh + var(--sar)); bottom: calc(29vh + var(--sab));
-    width: min(17vh, 78px); height: min(17vh, 78px); }
+    right: calc(25vh + var(--sar)); bottom: calc(2vh + var(--sab));
+    width: min(15vh, 66px); height: min(15vh, 66px); }
   .tbtn.reload {
-    right: calc(27vh + var(--sar)); bottom: calc(24.5vh + var(--sab));
-    width: min(16vh, 72px); height: min(16vh, 72px); }
+    right: calc(2vh + var(--sar)); bottom: calc(25vh + var(--sab));
+    width: min(13vh, 58px); height: min(13vh, 58px); }
   .tbtn.pause {
     /* below the top-left HUD panel rather than on top of it */
     left: calc(2vh + var(--sal)); top: calc(15vh + var(--sat));
-    width: min(13vh, 60px); height: min(13vh, 60px); }
+    width: min(12vh, 52px); height: min(12vh, 52px); }
   /* the browser fullscreen button stacks under pause on the left edge: at the top
      right it landed on the minimap (it is hidden inside the Android app, where the
      activity is already immersive) */
   .tbtn.full {
     left: calc(2vh + var(--sal)); top: calc(30vh + var(--sat));
-    width: min(13vh, 60px); height: min(13vh, 60px); }
+    width: min(12vh, 52px); height: min(12vh, 52px); }
   /* contextual action pill: readable, centred, and clear of both thumbs. It sits
      above the control hint line rather than on top of it. */
   .tbtn.ctx {
@@ -185,11 +188,25 @@
   #knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border: 2px solid var(--gold); border-radius: 50%;
     transform: translate(-50%,-50%); background: radial-gradient(circle at 35% 30%, #8a6a45 0%, #5a4128 75%);
     box-shadow: 0 3px 8px rgba(0,0,0,.6), inset 0 2px 3px rgba(255,255,255,.3); }
+  .tbtn.weapon { display: none; }
+  /* Lighter than it was: thinner rings, softer depth and a little translucency, so the
+     controls read as inlaid metal rather than four heavy leather discs sitting on the
+     game. A press brightens the button instead of moving it. */
   .tbtn { position: absolute; pointer-events: auto; touch-action: none; border: none; border-radius: 50%;
-    background: radial-gradient(circle at 33% 28%, #6d4c2c 0%, #4b3118 55%, #2c1c0b 100%); color: var(--ink);
+    background: radial-gradient(circle at 34% 26%, rgba(112,80,46,.80) 0%, rgba(70,47,24,.78) 58%, rgba(38,25,12,.82) 100%);
+    color: var(--ink); opacity: .92;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-    box-shadow: 0 0 0 2px var(--gold), 0 0 0 4px rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.6),
-      inset 0 2px 4px rgba(255,255,255,.22), inset 0 -5px 10px rgba(0,0,0,.55); text-shadow: 0 1px 2px #000; }
+    box-shadow: 0 0 0 1.5px rgba(211,169,92,.85), 0 0 0 2.5px rgba(0,0,0,.28), 0 4px 12px rgba(0,0,0,.45),
+      inset 0 1px 2px rgba(255,255,255,.18), inset 0 -4px 8px rgba(0,0,0,.4);
+    text-shadow: 0 1px 2px #000;
+    transition: opacity .45s ease, box-shadow .12s ease, transform .09s ease; }
+  .tbtn:active { opacity: 1;
+    box-shadow: 0 0 0 2px var(--gold2), 0 0 0 3px rgba(0,0,0,.3), 0 0 16px rgba(240,217,168,.30),
+      inset 0 1px 3px rgba(255,255,255,.26), inset 0 -4px 8px rgba(0,0,0,.4); }
+  /* idle: the layer steps back until a thumb reaches for it */
+  #touchUI { transition: opacity .45s ease; }
+  #touchUI.dim { opacity: .45; }
+  #touchUI.dim .tbtn.active { opacity: 1; }
   .tbtn svg { width: 44%; height: 44%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.8)); }
   .tbtn span { font-size: 9px; letter-spacing: 2px; }
   .tbtn.pressed { transform: scale(.93); background: radial-gradient(circle at 33% 28%, #8a6540 0%, #5e4020 55%, #3a2610 100%); }
@@ -204,6 +221,10 @@
      browser - landed on it as well. Touch moves help into the top-left strip
      beside PAUSE, the one place neither thumb ever goes, and drops the duplicate. */
   body.touch #btnFsPc { display: none; }
+  body.touch #btnWeapon { display: flex; font-size: 17px;
+    left: calc(2vh + var(--sal) + min(13vh, 60px) + min(1.6vh, 8px) + min(12vh, 52px) + min(1.6vh, 8px)); right: auto;
+    top: calc(15vh + var(--sat) + (min(13vh, 60px) - min(12vh, 52px)) / 2);
+    width: min(12vh, 52px); height: min(12vh, 52px); }
   body.touch #btnHelp {
     left: calc(2vh + var(--sal) + min(13vh, 60px) + min(1.6vh, 8px)); right: auto;
     top: calc(15vh + var(--sat) + (min(13vh, 60px) - min(12vh, 52px)) / 2);

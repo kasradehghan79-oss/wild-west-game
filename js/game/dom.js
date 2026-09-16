@@ -26,6 +26,7 @@ const cashEl = document.getElementById('cash');
 const wantedEl = document.getElementById('wanted');
 const heartsEl = document.getElementById('hearts');
 const stamFill = document.getElementById('stamfill');
+const gaitEl = document.getElementById('gait');
 const ammoCountEl = document.getElementById('ammoCount');
 const ammoNameEl = document.getElementById('ammoName');
 const reloadBar = document.getElementById('reloadBar');
