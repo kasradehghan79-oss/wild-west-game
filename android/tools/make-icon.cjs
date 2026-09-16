@@ -184,15 +184,15 @@ function sample(x, y, opts) {
         r = shade[0]; g = shade[1]; b = shade[2];
       }
       if (cd < ROUND * 0.55) {
-        const hot = mix([r, g, b], [255, 246, 205], 0.5);
+        const hot = mix([r, g, b], [255, 246, 205], 0.35);
         r = hot[0]; g = hot[1]; b = hot[2];
       }
     }
 
     // the hub: a bore, a brass ring, and the pin at the centre
-    if (dc < R * 0.155) { r = 24; g = 19; b = 13; }
-    if (Math.abs(dc - R * 0.155) < R * 0.009) { r = 150; g = 120; b = 40; }
-    if (dc < R * 0.036) { r = 255; g = 226; b = 148; }
+    if (dc < R * 0.205) { r = 24; g = 19; b = 13; }
+    if (Math.abs(dc - R * 0.205) < R * 0.008) { r = 138; g = 118; b = 38; }
+    if (dc < R * 0.026) { r = 164; g = 139; b = 52; }
   }
   return [r, g, b, a];
 }

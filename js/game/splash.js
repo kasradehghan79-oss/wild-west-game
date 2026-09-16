@@ -98,68 +98,97 @@ const Splash = (() => {
 
   /** The cylinder. rot is radians; chambers index through it, the live one waits at the top. */
   function cylinder(cx, cy, r, rot, live) {
-    const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.1);
-    glow.addColorStop(0, 'rgba(255,221,85,.34)');
-    glow.addColorStop(0.5, 'rgba(255,154,74,.12)');
+    const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.12);
+    glow.addColorStop(0, 'rgba(255,221,85,.5)');
+    glow.addColorStop(0.5, 'rgba(255,154,74,.18)');
     glow.addColorStop(1, 'rgba(255,154,74,0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 2.1, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 1.12, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(rot);
-    // steel face
-    const steel = ctx.createLinearGradient(-r * 0.7, -r, r * 0.7, r);
-    steel.addColorStop(0, '#475372');
+    // steel face, lit from the upper left, same as the launcher icon
+    const steel = ctx.createLinearGradient(-r * 0.65, -r, r * 0.75, r);
+    steel.addColorStop(0, '#546080');
     steel.addColorStop(0.55, '#2b2b33');
-    steel.addColorStop(1, '#241c12');
+    steel.addColorStop(1, '#131010');
     ctx.fillStyle = steel;
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
-    // brass rim
+    // a shadow just inside the rim, so the face is not a flat disc
+    ctx.strokeStyle = 'rgba(12,10,8,.45)';
+    ctx.lineWidth = r * 0.05;
+    ctx.beginPath();
+    ctx.arc(0, 0, r - r * 0.085, 0, Math.PI * 2);
+    ctx.stroke();
+    // brass rim, with a highlight along its upper left
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = Math.max(2, r * 0.08);
     ctx.beginPath();
     ctx.arc(0, 0, r - ctx.lineWidth * 0.5, 0, Math.PI * 2);
     ctx.stroke();
-    // flutes, and the six sunsets in their chambers
+    ctx.strokeStyle = 'rgba(255,244,205,.5)';
+    ctx.lineWidth = Math.max(1, r * 0.022);
+    ctx.beginPath();
+    ctx.arc(0, 0, r - ctx.lineWidth * 1.8, -Math.PI * 0.95, -Math.PI * 0.42);
+    ctx.stroke();
+
+    // Flutes are fine notches cut into the rim, not wedges across the face: deep
+    // ones cut the brass into six arcs and the whole thing reads as a wheel.
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
       const fa = a + Math.PI / 6;
-      ctx.strokeStyle = '#241c12';
-      ctx.lineWidth = r * 0.13;
+      ctx.strokeStyle = '#181310';
+      ctx.lineWidth = Math.max(1, r * 0.034);
       ctx.beginPath();
-      ctx.moveTo(Math.cos(fa) * r * 0.77, Math.sin(fa) * r * 0.77);
-      ctx.lineTo(Math.cos(fa) * r * 1.03, Math.sin(fa) * r * 1.03);
+      ctx.moveTo(Math.cos(fa) * r * 0.925, Math.sin(fa) * r * 0.925);
+      ctx.lineTo(Math.cos(fa) * r * 1.02, Math.sin(fa) * r * 1.02);
       ctx.stroke();
+    }
 
+    // Six chambers: a bronze collar, a dark bore, and a brass round with a
+    // sunset in it sitting down inside. Bright chambers read as bolts.
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
       const cxx = Math.cos(a) * r * 0.57, cyy = Math.sin(a) * r * 0.57;
-      ctx.fillStyle = '#241c12';
+      ctx.fillStyle = '#76601e';
       ctx.beginPath();
-      ctx.arc(cxx, cyy, r * 0.145, 0, Math.PI * 2);
+      ctx.arc(cxx, cyy, r * 0.152 + r * 0.026, 0, Math.PI * 2);
       ctx.fill();
-      const warm = ctx.createLinearGradient(0, cyy + r * 0.1, 0, cyy - r * 0.1);
+      ctx.fillStyle = '#161110';
+      ctx.beginPath();
+      ctx.arc(cxx, cyy, r * 0.152, 0, Math.PI * 2);
+      ctx.fill();
+      const warm = ctx.createLinearGradient(0, cyy + r * 0.05, 0, cyy - r * 0.05);
       warm.addColorStop(0, '#ff9a4a');
       warm.addColorStop(1, '#ffdd55');
       ctx.fillStyle = warm;
       ctx.beginPath();
-      ctx.arc(cxx, cyy, r * 0.095, 0, Math.PI * 2);
+      ctx.arc(cxx, cyy, r * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,246,205,.38)';
+      ctx.beginPath();
+      ctx.arc(cxx - r * 0.011, cyy - r * 0.011, r * 0.021, 0, Math.PI * 2);
       ctx.fill();
     }
-    // hub
+    // The hub is the axis, and it has to read as one: at chamber size with a
+    // bright centre it became a seventh bore. Bigger, plainer, dimmer.
     ctx.fillStyle = '#241c12';
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+    ctx.arc(0, 0, r * 0.205, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = Math.max(1.5, r * 0.04);
-    ctx.stroke();
-    ctx.fillStyle = '#d4af37';
+    ctx.strokeStyle = '#8a7626';
+    ctx.lineWidth = Math.max(1, r * 0.014);
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.05, 0, Math.PI * 2);
+    ctx.arc(0, 0, r * 0.205, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#a48b34';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.026, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
