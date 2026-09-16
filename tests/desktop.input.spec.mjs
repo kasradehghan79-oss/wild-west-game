@@ -22,7 +22,13 @@ test.describe('desktop', () => {
         touchSheet: getComputedStyle(document.querySelector('#helptext .tv')).display,
         helpRight: h.right,
         helpTop: h.y,
-        overlapWithMinimap: Math.round(Math.min(h.bottom, panel.bottom) - Math.max(h.top, panel.top)),
+        // a real overlap needs both axes: the panel grows downwards with the wanted
+        // stars, and the button may sit beside the rail as long as it clears it
+        overlapWithMinimap: (() => {
+          const ox = Math.min(h.right, panel.right) - Math.max(h.left, panel.left);
+          const oy = Math.min(h.bottom, panel.bottom) - Math.max(h.top, panel.top);
+          return (ox > 1 && oy > 1) ? Math.round(Math.min(ox, oy)) : 0;
+        })(),
         vw: innerWidth
       };
     });
@@ -96,7 +102,7 @@ test.describe('desktop', () => {
   test('mouse look turns the camera when pointer lock is unavailable', async ({ game }) => {
     const log = await resetGame(game);
     const before = await game.evaluate(() => ({ yaw, pitch }));
-    const box = await game.locator('canvas:not(#minimap)').boundingBox();
+    const box = await game.locator('#view').boundingBox();
     const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
     await game.mouse.move(cx, cy);
     await game.mouse.down({ button: 'right' });

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  
+  <defs>
+    <linearGradient id="sunset" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff9a4a"/><stop offset="1" stop-color="#ffdd55"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0.15" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#475372"/><stop offset="0.55" stop-color="#2b2b33"/>
+      <stop offset="1" stop-color="#241c12"/>
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#ffdd55" stop-opacity=".4"/>
+      <stop offset="0.55" stop-color="#ff9a4a" stop-opacity=".13"/>
+      <stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="250" r="252" fill="url(#halo)"/>
+  <circle cx="256" cy="250" r="148" fill="url(#steel)"/>
+  <circle cx="256" cy="250" r="142" fill="none" stroke="#d4af37" stroke-width="12"/>
+  <path d="M160,150 A140,140 0 0 1 336,134" fill="none"
+        stroke="#f0d8a8" stroke-width="8" stroke-linecap="round" opacity=".45"/>
+  
+    <circle cx="256.0" cy="166.0" r="21" fill="#241c12"/>
+    <circle cx="256.0" cy="166.0" r="14" fill="url(#sunset)"/>
+    <circle cx="328.7" cy="208.0" r="21" fill="#241c12"/>
+    <circle cx="328.7" cy="208.0" r="14" fill="url(#sunset)"/>
+    <circle cx="328.7" cy="292.0" r="21" fill="#241c12"/>
+    <circle cx="328.7" cy="292.0" r="14" fill="url(#sunset)"/>
+    <circle cx="256.0" cy="334.0" r="21" fill="#241c12"/>
+    <circle cx="256.0" cy="334.0" r="14" fill="url(#sunset)"/>
+    <circle cx="183.3" cy="292.0" r="21" fill="#241c12"/>
+    <circle cx="183.3" cy="292.0" r="14" fill="url(#sunset)"/>
+    <circle cx="183.3" cy="208.0" r="21" fill="#241c12"/>
+    <circle cx="183.3" cy="208.0" r="14" fill="url(#sunset)"/>
+  <path d="M313.0,151.3 L332.0,118.4"
+      stroke="#241c12" stroke-width="20" opacity=".92"/><path d="M370.0,250.0 L408.0,250.0"
+      stroke="#241c12" stroke-width="20" opacity=".92"/><path d="M313.0,348.7 L332.0,381.6"
+      stroke="#241c12" stroke-width="20" opacity=".92"/><path d="M199.0,348.7 L180.0,381.6"
+      stroke="#241c12" stroke-width="20" opacity=".92"/><path d="M142.0,250.0 L104.0,250.0"
+      stroke="#241c12" stroke-width="20" opacity=".92"/><path d="M199.0,151.3 L180.0,118.4"
+      stroke="#241c12" stroke-width="20" opacity=".92"/>
+  <circle cx="256" cy="250" r="24" fill="#241c12"/>
+  <circle cx="256" cy="250" r="24" fill="none" stroke="#d4af37" stroke-width="6"/>
+  <circle cx="256" cy="250" r="8" fill="#d4af37"/>
+</svg>

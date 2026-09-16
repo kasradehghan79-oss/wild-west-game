@@ -11,9 +11,42 @@
        reachable when they do. Browsers without it fall back to the line above. */
     overflow-y: auto; justify-content: safe center; }
   .overlay.show { display: flex; }
-  #start { background: radial-gradient(ellipse at 50% 30%, rgba(60,40,12,.42), rgba(6,4,2,.82) 72%); }
-  #start h1 { font-size: clamp(38px, 9vw, 82px); letter-spacing: 12px; margin: 0 0 6px; color: #fff;
-    text-shadow: 0 4px 0 #6a4614, 0 10px 30px #000, 0 0 44px rgba(255,190,90,.35); }
+  /* The opening animation is a fixed backdrop rather than a child of the
+     overlay: a phone in landscape scrolls the title screen, and a child would
+     slide away with it. It sits one layer under the overlays and is taken out
+     of the compositor the moment the match starts. */
+  #splash { position: fixed; inset: 0; z-index: 39; display: block; width: 100%; height: 100%;
+    transition: opacity .5s ease; /* decoration only: the look controls listen on the
+      renderer's own canvas, and a full-screen layer that takes the mouse would swallow
+      every drag that starts while it is still fading out */ pointer-events: none; }
+  #splash.gone { opacity: 0; }
+  /* the opening screen paints its own sky and desert on #splash, so the overlay
+     itself is see-through; the old flat gradient comes back the moment the
+     animation is done (js/game/splash.js adds .solid), so a menu opened later
+     in the session is never transparent over the world */
+  #start { background: none; }
+  /* On a screen with room to spare the menu sits below the horizon the canvas
+     draws - the canvas publishes it as --horizon, so the two can never
+     disagree - and the rows tighten up a little to buy the space. A short
+     landscape phone has no room for that: there the animation is the backdrop
+     and the menu keeps its own layout. */
+  @media (min-height: 780px) {
+    /* the bottom padding is the credit's own strip: without it the menu runs
+       into it on a laptop-height screen */
+    #start { padding-top: var(--horizon, 40vh); padding-bottom: 30px; }
+    #start .tag { margin-bottom: 10px; }
+    #start .keys { padding: 7px 14px; gap: 2px 14px; margin-bottom: 10px; font-size: 11.5px; }
+    #start .row.btns { margin-top: 0; }
+    #start .play, #start .mbtn { padding-top: 11px; padding-bottom: 11px; }
+    .diffblock { margin-top: 9px; }
+    .diffblurb { margin-top: 4px; }
+  }
+  #start.solid { background: radial-gradient(ellipse at 50% 30%, rgba(60,40,12,.42), rgba(6,4,2,.82) 72%); }
+  /* The title is drawn as paths, not set in a font, so it opens the same on
+     every machine. The drop shadow is the only thing keeping it off the sky. */
+  #start h1.logo { margin: 0 0 10px; pointer-events: none; }
+  #start .logo svg { display: block; width: min(80vw, 620px); height: auto;
+    filter: drop-shadow(0 6px 16px rgba(0,0,0,.8)); }
   #start .tag { color: var(--gold2); letter-spacing: 5px; font-size: 12px; margin-bottom: 22px; text-transform: uppercase; }
   #start .keys { display: grid; grid-template-columns: auto auto; gap: 5px 16px; font-size: 12.5px; color: #e3d7bd;
     background: rgba(8,5,2,.55); border: 1px solid rgba(211,169,92,.5); padding: 14px 20px; margin-bottom: 24px; }
@@ -108,8 +141,10 @@
     background: radial-gradient(circle at 33% 28%, #6d4c2c 0%, #4b3118 55%, #2c1c0b 100%);
     color: var(--ink); font-size: 16px; font-weight: bold; box-shadow: 0 0 0 2px var(--gold), 0 0 0 3px rgba(0,0,0,.35), 0 4px 10px rgba(0,0,0,.6);
     text-shadow: 0 1px 2px #000; }
-  #btnHelp { top: 214px; right: 12px; }
-  #btnFsPc { top: 214px; right: 52px; }
+  /* They hug the right edge, below the right panel at its tallest (minimap plus
+     a full wanted row), so the two never touch however many stars are lit. */
+  #btnHelp { top: 244px; right: 12px; }
+  #btnFsPc { top: 244px; right: 52px; }
   #btnHelp:active, #btnFsPc:active { transform: scale(.93); }
   #btnFsPc svg { width: 15px; height: 15px; }
 

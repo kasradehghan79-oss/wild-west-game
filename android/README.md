@@ -18,7 +18,7 @@ android/
       java/com/kasradn/wildwest/MainActivity.java
       res/values/          app name and the fullscreen theme
       res/mipmap-*/        launcher icons (generated, see tools/)
-  tools/make-icon.js       regenerates those icons: node tools/make-icon.js
+  tools/make-icon.cjs      regenerates those icons: node tools/make-icon.cjs
 ```
 
 `build_apk.py` is the single source of truth for the command line build; the
@@ -100,7 +100,7 @@ collects nothing - it only writes settings to the browser's local storage).
 | App name shown under the icon | `app/src/main/res/values/strings.xml` |
 | Package / application id | `namespace` + `applicationId` in `app/build.gradle`, the `package` in the manifest is injected by the script, and the `package` line in `MainActivity.java` |
 | Version | `versionCode` / `versionName` in the manifest (the script can also override them with `-VersionCode` / `-VersionName`) |
-| Icon | `node tools/make-icon.js` (the artwork is code, in that file) |
+| Icon | `node tools/make-icon.cjs` (the artwork is code, in that file) |
 | Orientation | `android:screenOrientation` in the manifest (`sensorLandscape` today) |
 | WebView behaviour | `MainActivity.java` - fullscreen, keep-screen-on, pause on background, back button |
 

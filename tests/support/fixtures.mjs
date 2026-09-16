@@ -58,8 +58,15 @@ export async function resetGame(page, { storage = true, quality = null } = {}) {
     if (shopOpen) closeShop();
     if (paused) setPaused(false);
     // the fixture boots straight into a round rather than clicking PLAY, so the
-    // title screen has to be taken down here or it would sit over every overlay
+    // title screen has to be taken down here or it would sit over every overlay.
+    // The opening screen goes with it: in the game the same thing happens through
+    // the mode:change event, and leaving it animating would burn a core a test.
     startEl.classList.remove('show');
+    if (typeof Splash === 'object' && Splash && Splash.stop) Splash.stop();
+    // and out of the layout straight away: stop() fades it out over half a second,
+    // which is right for a player and wrong for a test measuring where things sit
+    const splashCv = document.getElementById('splash');
+    if (splashCv) splashCv.style.display = 'none';
     savesEl.classList.remove('show');
     helpText.style.display = 'none';
     btnContext.classList.remove('on');

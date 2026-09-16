@@ -24,6 +24,9 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.LinearEncoding;   // the post pass does the sRGB encode
 renderer.toneMapping = THREE.NoToneMapping;       // and the filmic curve
+// Named, because it is no longer the only canvas on the page: the opening
+// screen adds one of its own, and "the canvas" has to mean the world.
+renderer.domElement.id = 'view';
 document.body.appendChild(renderer.domElement);
 scene.add(camera);
 

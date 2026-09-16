@@ -47,6 +47,44 @@ committed APK is never a stale one.
 
 ---
 
+## The mark, and the opening screen
+
+The mark is **Six Suns**: a revolver cylinder standing on the horizon where a
+sun would be, its six chambers each holding a sunset. It is the game's world (a
+day that ends) and the game's gun (six rounds) in one shape, and it is drawn in
+the same colours the world is - ink `0x241c12`, brass `0xd4af37`, steel
+`0x475372`, twilight `0xff9a4a`, sun `0xffdd55`, adobe `0xf0d8a8`.
+
+The title is a wordmark, not a font: the letters are stroked SVG paths in
+`index.html`, so the name opens the same on every machine and the Android icon
+can be cut from the same artwork. Source files live in `brand/` (`icon.svg`,
+`mark.svg`, `title.svg`, `wide.svg`); the launcher PNGs are generated from the
+same drawing in `android/tools/make-icon.cjs`.
+
+Opening the game plays one day: `js/game/splash.js` paints a 2D canvas behind
+the title screen - the sky walking night, first light, dawn, morning, noon,
+golden hour and dusk - while the cylinder indexes across it, sixty degrees at a
+time, one chamber lighting in battery per round. Six rounds, six steps of
+daylight, and the last frame leaves the cylinder standing on the horizon exactly
+as the icon draws it.
+
+Three things about it are deliberate:
+
+- **It is 2D, on its own canvas.** The WebGL renderer is already building the
+  town behind this screen; the opening must not compete with it for the device.
+- **Its clock counts painted frames, not wall time**, so a slow phone or a long
+  world build cannot eat the first third of the day.
+- **It stops when the match starts**, and it is a one-off: the game says so with
+  the `mode:change` event it already emits, so nothing in the play path needed a
+  hook. If the browser asks for reduced motion, one finished frame is drawn and
+  no animation is scheduled at all.
+
+The canvas publishes where its horizon landed as the `--horizon` CSS variable,
+and `#start` uses it as padding: on a screen with room, the sun, the title and
+the menu are three separate bands, and on a landscape phone - where the menu
+needs the whole screen - the sun drops low and passes behind the panel.
+
+---
 ## Project layout
 
 ```
@@ -113,6 +151,7 @@ js/
     rounds.js         round/match flow, scoring, respawns
     save-ui.js        save/load screen, pause menu entries, CONTINUE
     loop.js           player input, camera, HUD drawing, day/night, main frame loop
+    splash.js         the opening screen: the animated day on the title card
   render/
     post.js           MSAA target, bloom, ACES tonemap, grade, vignette, sRGB encode
 ```

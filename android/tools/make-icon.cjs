@@ -4,7 +4,7 @@
  * the artwork is drawn per pixel with 4x supersampling so the star and the ring
  * come out smooth. Run it from anywhere:
  *
- *     node android/tools/make-icon.js
+ *     node android/tools/make-icon.cjs
  *
  * Output: android/app/src/main/res/mipmap-<density>/ic_launcher.png
  */
@@ -66,31 +66,39 @@ function encodePng(width, height, rgba) {
 }
 
 // ------------------------------------------------------------------- artwork
-// A star badge on dark leather: outer gold ring, five point star, warm gradient.
-const STAR = (() => {
-  const pts = [];
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + i * Math.PI / 5;
-    const r = i % 2 === 0 ? 0.60 : 0.255;
-    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+// Six Suns: a revolver cylinder standing on the horizon where a sun would be,
+// its six chambers each holding a sunset. Same artwork as the in-game logo and
+// the opening screen (see js/game/splash.js), drawn here in the same way: every
+// shape is a distance test in normalised -1..1 space, which is why the wheel
+// needs no trigonometry beyond placing its chambers.
+//
+//   ink   0x241c12      brass 0xd4af37      steel 0x475372
+//   sun   0xffdd55      dusk  0xff9a4a      adobe 0xf0d8a8
+const INK = [36, 28, 18];
+const SIX = (() => {
+  const out = [];
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 3;
+    out.push([Math.cos(a), Math.sin(a)]);
   }
-  return pts;
+  return out;
 })();
 
-function inPolygon(x, y, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i], [xj, yj] = poly[j];
-    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
-  }
-  return inside;
+function lerp(a, b, t) { return a + (b - a) * t; }
+function mix(c1, c2, t) { return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)]; }
+/** Distance from a point to a segment: the flutes are capsules, not rectangles. */
+function segDist(x, y, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay;
+  const t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy)));
+  return Math.hypot(x - (ax + vx * t), y - (ay + vy * t));
 }
 
-function lerp(a, b, t) { return a + (b - a) * t; }
+const CX = 0, CY = -0.02, R = 0.62, HORIZON = CY + R;
 
 /** Colour for one sample point in normalised -1..1 space. Returns [r,g,b,a] 0..255. */
 function sample(x, y) {
   const d = Math.hypot(x, y);
+  const dc = Math.hypot(x - CX, y - CY);
 
   // background: dark leather with a soft radial lift
   const lift = 1 - Math.min(1, d);
@@ -100,17 +108,55 @@ function sample(x, y) {
   // vignette so the badge reads as a physical object
   if (d > 0.94) a = Math.round(255 * Math.max(0, 1 - (d - 0.94) / 0.06));
 
-  // gold ring
-  if (d > 0.855 && d < 0.925) {
-    const edge = Math.min(1, Math.min(d - 0.855, 0.925 - d) / 0.012);
-    const t = edge;
-    r = lerp(r, 255, t); g = lerp(g, 214, t); b = lerp(b, 122, t);
+  // the ground, and the horizon the cylinder stands on
+  if (y > HORIZON) {
+    const t = Math.min(1, (y - HORIZON) / 0.4);
+    r = lerp(r * 0.72, 9, t); g = lerp(g * 0.72, 7, t); b = lerp(b * 0.72, 4, t);
+  }
+  if (Math.abs(y - HORIZON) < 0.012) {
+    const t = Math.min(1, Math.abs(y - HORIZON) / 0.012);
+    [r, g, b] = mix([240, 216, 168], [r, g, b], t);
   }
 
-  // star, gold gradient from top to bottom
-  if (inPolygon(x, y, STAR)) {
-    const t = Math.min(1, Math.max(0, (y + 0.6) / 1.2));
-    r = lerp(255, 172, t); g = lerp(226, 124, t); b = lerp(140, 52, t);
+  // the light the cylinder gives off
+  if (dc < 1.5) {
+    const t = Math.pow(Math.max(0, 1 - dc / 1.5), 2.2) * 0.85;
+    [r, g, b] = mix([r, g, b], [255, 209, 102], t);
+  }
+
+  if (dc <= R) {
+    // steel face: light from the top left
+    const t = Math.min(1, Math.max(0, ((x - CX) * 0.5 + (y - CY) * 0.9) / R + 0.5));
+    [r, g, b] = mix([71, 83, 114], INK, t);
+
+    // brass rim
+    if (dc > R - 0.055) [r, g, b] = [212, 175, 55];
+
+    // flutes, cut into the rim between the chambers
+    for (let i = 0; i < 6; i++) {
+      const a = Math.atan2(SIX[i][1], SIX[i][0]) + Math.PI / 6;
+      const w = 0.13;
+      if (segDist(x, y, CX + Math.cos(a) * R * 0.77, CY + Math.sin(a) * R * 0.77,
+        CX + Math.cos(a) * R * 1.03, CY + Math.sin(a) * R * 1.03) < w / 2) {
+        [r, g, b] = INK;
+      }
+    }
+
+    // six chambers, each one a small sunset
+    for (let i = 0; i < 6; i++) {
+      const px = CX + SIX[i][0] * R * 0.57, py = CY + SIX[i][1] * R * 0.57;
+      const cd = Math.hypot(x - px, y - py);
+      if (cd < 0.145 * R) [r, g, b] = INK;
+      if (cd < 0.095 * R) {
+        const t = Math.min(1, Math.max(0, (y - py) / (0.19 * R) + 0.5));
+        [r, g, b] = mix([255, 221, 85], [255, 154, 74], t);
+      }
+    }
+
+    // hub
+    if (dc < 0.16 * R) [r, g, b] = INK;
+    if (Math.abs(dc - 0.16 * R) < 0.025 * R) [r, g, b] = [212, 175, 55];
+    if (dc < 0.05 * R) [r, g, b] = [212, 175, 55];
   }
   return [r, g, b, a];
 }
