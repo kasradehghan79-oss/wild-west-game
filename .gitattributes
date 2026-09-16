@@ -1,0 +1,7 @@
+# The APK is committed so it can be downloaded and side-loaded straight from GitHub.
+# It has to stay byte for byte what the build produced: core.autocrlf is on for this
+# checkout, and a line ending pass over a zip would silently break the install.
+*.apk binary
+
+# Same for the launcher icons the Android build packs.
+*.png binary

@@ -39,6 +39,12 @@ Android Studio users can open `android/` and press Run instead, or publish via
 Gradle. Details, signing for Play, and the phone performance notes are in
 [`android/README.md`](android/README.md).
 
+**The built APK is committed**, so it can be downloaded and side-loaded without
+building anything: [`dist/wildwest.apk`](dist/wildwest.apk) (0.36 MB) - open it on
+the phone, or `adb install -r "dist/wildwest.apk"`. It is the same bytes the build
+script produces; `tests/apk.spec.mjs` fails if it drifts from the web build, so a
+committed APK is never a stale one.
+
 ---
 
 ## Project layout

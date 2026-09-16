@@ -1,5 +1,6 @@
 # build outputs
-dist/
+dist/*
+!dist/wildwest.apk
 android/build/
 
 # playwright / tooling scratch
