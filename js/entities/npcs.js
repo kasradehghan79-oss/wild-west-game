@@ -26,16 +26,7 @@ function freeSpot(x, z, r, tries) {
 }
 // Men who arrived because of a wanted level, rather than the town's own posse. They
 // are cleared at the start of a round: without this the streets fill up with every
-// man the law ever sent, until the cap stops it answering at all.
-function clearExtras() {
-  for (let i = npcs.length - 1; i >= 0; i--) {
-    const n = npcs[i];
-    if (!n.extra) continue;
-    if (typeof Squads === 'object') Squads.leave(n);
-    if (n.g && n.g.parent) n.g.parent.remove(n.g);
-    npcs.splice(i, 1);
-  }
-}
+
 function addLawman(archetype, x, z) {
   const shirt = pick(lawShirts), hat = archetype === 'rifleman' ? pick(rifleHats) : pick(lawHats);
   const n = makeHuman(shirt, 0x475372, hat, true, archetype === 'sheriff', archetype);
@@ -118,7 +109,6 @@ function scatterNpcs() {
     n.spawn = { x: p.x, y: heightAt(p.x, p.z), z: p.z, rot: Math.random() * TAU };
   }
 }
-let specNpc = null;
 function spawnReinforcement(archetype) {
   if (npcs.length > 26) return null;
   const a = rnd(0, TAU);
@@ -129,7 +119,6 @@ function spawnReinforcement(archetype) {
   n.reactT = 1.4;
   // marked so the start of the next round can send them home: without this the town
   // grows by every man the law ever sent, until the cap stops it answering at all
-  n.extra = true;
   return n;
 }
 
@@ -138,7 +127,7 @@ function blinkH(h, dt) {
   h.blinkT -= dt;
   if (h.blinkT <= 0) h.blinkT = 2 + Math.random() * 4;
   const s = h.blinkT > 0.12 ? 1 : Math.max(0.1, Math.abs((h.blinkT - 0.06) / 0.06));
-  h.eyes.forEach(e => e.scale.y = s);
+  h.eyes.forEach(e => { e.scale.y = s; });
 }
 function pickNpcTarget(n) {
   // a walk target inside a building means the NPC leans on the wall forever,
@@ -176,17 +165,6 @@ function resetHumanAnim(h) {
 }
 
 // ---------- npc combat ----------
-const dmgForDist = d => 1 + Math.max(0, 30 - d) / 30;
-function npcGun(n) {
-  const A = ARCH[n.archetype];
-  return {
-    muzzle: () => {
-      const fwd = new THREE.Vector3(Math.sin(n.g.rotation.y), 0, Math.cos(n.g.rotation.y));
-      return new THREE.Vector3(n.g.position.x + fwd.x * 0.6, n.g.position.y + 1.42, n.g.position.z + fwd.z * 0.6);
-    },
-    A
-  };
-}
 function fireNpc(n, pd, hitMult) {
   const A = ARCH[n.archetype];
   const fwd = new THREE.Vector3(Math.sin(n.g.rotation.y), 0, Math.cos(n.g.rotation.y));

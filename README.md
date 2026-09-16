@@ -248,6 +248,56 @@ GREENHORN below it is gentler again.
 
 ---
 
+## How the code is organised
+
+Layers, and the rule that dependencies only ever point downwards:
+
+```
+core/       utils, event bus, settings, difficulty, engine, lights, materials,
+            collision, audio, game state, saves, input, touch     - no game rules
+world/      sky, cycle, terrain, ground, lakes, mountains, buildings, nature,
+            props, campfire, store                                 - the place
+entities/   human, archetypes, npcs, locomotion, horse, weapons,
+            weapon-models, shooting, mount                         - the people
+ai/         perception, behavior, squad                            - what they decide
+law/        law, witnesses                                         - what it costs
+missions/   objectives, mission, manager, catalog                  - what is being asked
+game/       dom, state, shop, rounds, hud, minimap, save-ui,
+            difficulty-ui, loop                                    - the frame, the HUD, the menu
+```
+
+Everything is a **classic script in one shared global scope**, which is deliberate:
+the game has to run from `file://` inside the Android WebView, where ES modules are
+blocked by CORS, and it has to run with no build step. The price is that every
+top-level name is public and the load order in `index.html` is load-bearing, so
+there are three rules and two tools to keep that honest:
+
+- **Load order is top to bottom by layer.** A file may only use names from files
+  above it in `index.html`. The one exception worth knowing: a file that *spawns
+  things at load time* (npcs.js builds the garrison, which needs `Squads`) must sit
+  below what it uses, which is why `ai/` loads before `entities/npcs.js`.
+- **Every top-level name is declared exactly once**, and is referenced by something.
+- **No file is loaded that does not exist, and no file exists that is not loaded.**
+
+```bash
+npm run lint    # eslint, tuned for a shared global scope: no-undef, no-redeclare,
+                # no-dupe-keys, no-unreachable, eqeqeq ... correctness, not taste
+npm run audit   # sizes, the global surface, dead names, and the load order
+                # (--check turns it into a gate; tests/structure.spec.mjs runs it)
+```
+
+`npm run lint` is the one that earns its keep: `no-undef` in a shared scope catches
+exactly the failures this architecture invites - a name used before it exists, a
+typo that silently creates a global, a helper that only works because a browser
+global happens to share its name. `tools/globals.json` is the inventory the linter
+checks against, generated from the code by the audit, so the two cannot drift.
+
+**Adding a system** is then four steps: write the file, add it to `index.html` below
+everything it uses, run `npm run audit` to regenerate the inventory, run
+`npm run lint` and the specs.
+
+---
+
 ## Perception, behaviour and squads
 
 NPCs notice things before anyone shoots. `js/ai/` is a three part layer over the

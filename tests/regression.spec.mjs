@@ -4,14 +4,15 @@
    cannot come back. Every assertion here failed at some point.
    ========================================================================== */
 import { test, expect, resetGame } from './support/fixtures.mjs';
-import { patch, gameState, probe, expectNoErrors, layout } from './support/game.mjs';
+import { patch, gameState, probe, expectNoErrors, layout, setWanted } from './support/game.mjs';
 
 test.describe('things that used to run while the game was frozen', () => {
   // NPCs kept walking, the round clock kept counting down, passive healing kept
   // ticking and the wanted level kept decaying behind the pause menu and the store.
   test('no clock, no NPC and no healing moves in any frozen state', async ({ game }) => {
     await resetGame(game);
-    await patch(game, { wanted: 3, wantedT: 1.5, hp: 2, sinceDmg: 60 });
+    await setWanted(game, 3);
+    await patch(game, { wantedT: 1.5, hp: 2, sinceDmg: 60 });
 
     await game.evaluate(() => setPaused(true));
     const paused = await probe(game, 8);
@@ -50,9 +51,13 @@ test.describe('state and save regressions', () => {
   // the saved value was stamped in first.
   test('the wanted level and its timer survive a save and load', async ({ game }) => {
     await resetGame(game);
-    await patch(game, { wanted: 4, wantedT: 30 });
+    // the level lives in the record now, so the record is what gets raised and saved
+    await setWanted(game, 4);
+    await patch(game, { wantedT: 30 });
     await game.evaluate(() => Save.write('1'));
-    await patch(game, { wanted: 0, wantedT: 0 });
+    await game.evaluate(() => Law.clearRecord());
+    await patch(game, { wantedT: 0 });
+    expect(await game.evaluate(() => wanted), 'wiped before the load').toBe(0);
     await game.evaluate(() => Save.load('1'));
     await game.waitForFunction(() => Mode.live());
     const s = await gameState(game);

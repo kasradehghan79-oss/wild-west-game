@@ -11,11 +11,15 @@
     "test:phone": "playwright test --project=phone",
     "test:apk": "playwright test apk",
     "test:headed": "playwright test --headed",
+    "lint": "eslint js tests tools playwright.config.mjs",
+    "audit": "node tools/audit-structure.mjs",
     "report": "playwright show-report tests/.report",
     "serve": "node tests/support/serve.mjs 8080"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "eslint": "^10.10.0",
+    "globals": "^16.6.0"
   },
   "engines": {
     "node": ">=18"

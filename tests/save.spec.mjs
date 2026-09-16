@@ -6,7 +6,7 @@
    never produces an impossible world.
    ========================================================================== */
 import { test, expect, resetGame } from './support/fixtures.mjs';
-import { patch, gameState, expectNoErrors, clearStorage, refreshContinueButton } from './support/game.mjs';
+import { patch, gameState, expectNoErrors, clearStorage, refreshContinueButton, setWanted } from './support/game.mjs';
 
 const STATE = {
   cash: 275, roundNum: 2, kills: 6, headshots: 2, totalKills: 6, survivedRounds: 1,
@@ -33,6 +33,9 @@ test.describe('save slots', () => {
       expect(row.buttons.map(b => b.label)).toEqual(['SAVE', 'LOAD', 'CLEAR']);
     }
 
+    // the wanted level is derived from the record, so it is raised through the law before
+    // the state is stamped and saved
+    await setWanted(game, STATE.wanted);
     await patch(game, STATE);
     const slot2 = game.locator('#saveSlots .item').filter({ hasText: 'SLOT 2' });
     await slot2.getByRole('button', { name: 'SAVE' }).click();
@@ -188,7 +191,7 @@ test.describe('hostile or damaged storage', () => {
     expect(settingsRes.obj).toBeUndefined();
     expect(settingsRes.viaProto, 'the settings object kept its own prototype').toBeUndefined();
     expect(settingsRes.sens, 'the real key still applied').toBeCloseTo(0.004, 4);
-    expect(settingsRes.keys).toBe('invertY,quality,sens,volume');
+    expect(settingsRes.keys, 'the known keys, including the chosen difficulty').toBe('difficulty,invertY,quality,sens,volume');
 
     // the previous contents of a slot survive an unreadable write
     await game.evaluate(() => { cash = 10; Save.write('2'); cash = 500; Save.write('2'); });

@@ -135,7 +135,10 @@ test.describe('gunplay', () => {
     expect(hit.dead, 'the target died (hp ' + hit.hp + ')').toBe(true);
     expect(hit.killsDelta).toBe(1);
     expect(hit.cashDelta, 'bounty paid').toBeGreaterThan(0);
-    expect(hit.wantedAfter, 'shooting a lawman puts a price on you').toBeGreaterThanOrEqual(1);
+    // The wanted level is derived from witnessed crimes now, so what a kill does immediately
+    // is open a case and put blood on the record. The level follows the report.
+    expect(hit.wantedAfter, 'a kill is not automatically a wanted level without a witness').toBe(0);
+    expect(await game.evaluate(() => Law.violentNow() || Witnesses.status().total > 0), 'but it does put blood on the record').toBe(true);
     expect(hit.ammoSpent).toBeGreaterThan(0);
 
     const missed = await game.evaluate(async () => {

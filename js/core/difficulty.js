@@ -80,7 +80,6 @@ const DIFFICULTIES = [
     garrison: ['deputy', 'deputy', 'deputy', 'deputy', 'deputy', 'rifleman', 'rifleman', 'shotgunner', 'hunter', 'hunter']
   }
 ];
-const DIFFICULTY_IDS = DIFFICULTIES.map(d => d.id);
 
 const Difficulty = (() => {
   let cur = DIFFICULTIES[1];

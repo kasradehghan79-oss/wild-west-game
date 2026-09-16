@@ -21,7 +21,7 @@ let matchState = 'intro', paused = false, shopOpen = false;
 let playerShotT = 0;
 // when public gunfire last opened a case: it is rate limited, so it has to be declared
 let lastGunCrime = -99;
-let cash = 0, shake = 0, runT = 0, vy = 0, grounded = true, stepT = 0, gallopT = 0;
+let cash = 0, shake = 0, runT = 0, vy = 0, grounded = true, gallopT = 0;
 let totalKills = 0, headshots = 0, survivedRounds = 0, hp = 5;
 // wall clock seconds actually played, kept for the save screen
 let playtime = 0;

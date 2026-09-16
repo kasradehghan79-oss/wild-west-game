@@ -8,7 +8,6 @@
    ========================================================================== */
 "use strict";
 // ---------- horse ----------
-const hCoat = 0x6e4a2f, hDark = 0x3d2a1a, hHoof = 0x1f150c, hLeather = 0x4a3220;
 function furCanvas(w, base, cols, n, len) {
   const cv = document.createElement('canvas'); cv.width = cv.height = w;
   const ctx = cv.getContext('2d');

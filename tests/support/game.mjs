@@ -177,6 +177,25 @@ export async function patch(page, d) {
   }, d);
 }
 
+// Set the wanted level through the law's own record. The level is derived from heat, so
+// assigning `wanted` directly just gets overwritten on the next frame - which is the point
+// of the design, and the reason tests have to go through here.
+export async function setWanted(page, level) {
+  return page.evaluate(l => {
+    Law.clearRecord();
+    // mid band: the heat decays every frame, so sitting exactly on the threshold would drop
+    // a level while the test is still looking at it
+    // mid band, so the every frame decay does not drop a level while the test is looking at
+    // it; the top level has no ceiling, so it is not clamped
+    if (l > 0) {
+      const ceiling = l >= HEAT_LEVELS.length - 1 ? Infinity : HEAT_LEVELS[l + 1] - 0.1;
+      Law.restore({ heat: Math.min(HEAT_LEVELS[l] + 1, ceiling) });
+    }
+    else Law.update(0.016);
+    return wanted;
+  }, level);
+}
+
 // ---------------------------------------------------------------- waiting
 export async function waitForMode(page, name) {
   await page.waitForFunction(n => Mode.current() === n, name);
@@ -444,7 +463,6 @@ export async function fireAtPinned(page, { tries = 3, hp = 0.5 } = {}) {
 export async function seedSlot(page, slot, mutate) {
   return page.evaluate(({ slot, mutate }) => {
     const data = Save.snapshot();
-    // eslint-disable-next-line no-new-func
     if (mutate) new Function('d', mutate)(data);
     localStorage.setItem('wildwest.save.' + slot, JSON.stringify(data));
     return JSON.parse(localStorage.getItem('wildwest.save.' + slot));

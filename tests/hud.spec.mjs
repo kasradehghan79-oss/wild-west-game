@@ -4,7 +4,7 @@
    one pays for a single boot and then checks a whole cluster.
    ========================================================================== */
 import { test, expect, resetGame } from './support/fixtures.mjs';
-import { patch, expectNoErrors, gameState } from './support/game.mjs';
+import { patch, expectNoErrors, gameState, setWanted } from './support/game.mjs';
 
 test.describe('hud', () => {
   test('vitals, ammo, weapon name and the heart row follow the state', async ({ game }) => {
@@ -55,7 +55,7 @@ test.describe('hud', () => {
 
     // five slots always, filled to the wanted level
     for (const level of [0, 1, 3, 5]) {
-      await patch(game, { wanted: level, wantedT: 30 });
+      await setWanted(game, level);
       await game.waitForFunction(l => wantedEl.textContent.length === 5 && (l === 0 || !!wantedEl.querySelector('i')), level);
       const info = await game.evaluate(() => ({
         slots: wantedEl.textContent.length,

@@ -36,6 +36,5 @@ function saveSettings() { try { localStorage.setItem('wildwest.settings', JSON.s
 // what buys soft shadow detail and filmic highlights instead of the flat
 // "everything is mid grey" look.
 function srgb(c) { return new THREE.Color(c).convertSRGBToLinear(); }
-const tmpCol = new THREE.Color();
 const C_SKYB = new THREE.Color();
 
