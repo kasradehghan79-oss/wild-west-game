@@ -176,9 +176,18 @@ def tool(bt: Path, name: str) -> Path:
 
 
 def launch(tool_path_: Path, *args):
-    """Command list for a tool, wrapping batch files so Windows runs them properly."""
+    """Command list for a tool. Windows batch launchers are avoided rather than
+    wrapped: cmd strips the outermost pair of quotes on a /c line, so a toolchain
+    under a path with a space in it - C:\\Users\\Some Name\\... - fails to start at
+    all. These launchers only run a jar from the sibling lib/ directory, so the
+    jar is run directly instead, which also skips a process."""
     exe_path = str(tool_path_)
     if exe_path.lower().endswith((".bat", ".cmd")):
+        jar = Path(exe_path).parent / "lib" / (Path(exe_path).stem + ".jar")
+        java_home = os.environ.get("JAVA_HOME", "")
+        if jar.exists() and java_home:
+            return [str(Path(java_home) / "bin" / exe("java")), "-jar", str(jar),
+                    *[str(a) for a in args]]
         return ["cmd", "/c", exe_path, *[str(a) for a in args]]
     return [exe_path, *[str(a) for a in args]]
 
@@ -481,6 +490,9 @@ def verify_apk(root: Path, apk: Path, sdk_arg: str | None, java_arg: str | None)
         if java_home:
             env["JAVA_HOME"] = str(java_home)
             env["PATH"] = str(Path(java_home) / "bin") + os.pathsep + env.get("PATH", "")
+            # the same reason as in build_apk: the tools, and the launchers that
+            # wrap them, find their java through the environment they inherit
+            os.environ.update(env)
         if apksigner:
             proc = subprocess.run(launch(apksigner, "verify", "--print-certs", apk),
                                   capture_output=True, text=True, errors="replace", env=env)
