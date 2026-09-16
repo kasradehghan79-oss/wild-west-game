@@ -47,6 +47,44 @@ committed APK is never a stale one.
 
 ---
 
+## Windows
+
+`windows/` builds a setup file for any Windows 10 or 11 PC: a normal
+`Setup.exe` with a wizard, a Start Menu shortcut, an uninstaller and an entry in
+Settings > Apps - all of it per-user, so **no administrator is needed**, in
+either direction.
+
+```bash
+python windows/build_setup.py            # -> dist/The Wild West Setup.exe  (0.4 MB)
+python windows/build_setup.py --check    # report the toolchain and payload
+python windows/build_setup.py --selftest # build, then install and remove it in a scratch folder
+```
+
+One file, and one file only: the version lives inside it, so Explorer's Details
+tab and the wizard both report it. The uninstaller appears when you install -
+the setup writes a copy of itself into the install folder as `Uninstall.exe`
+alongside `Uninstall` in Settings > Apps. It finds the install through the
+registry, so that copy works even if it is moved.
+
+The compiler it uses is `csc.exe`, which ships inside Windows with the .NET
+Framework, so there is nothing to install first and no third party tooling to
+keep around: `windows/setup.cs` is the whole installer.
+
+It installs the web build as it is - the game runs from `file://`, with no
+server and no network - and opens it in Microsoft Edge's application mode, which
+gives it a window of its own, without an address bar or tabs, on the browser
+every Windows machine already has. `tests/windows.spec.mjs` boots the game over
+`file://` to keep that premise honest, and runs the setup into a scratch folder
+to check it installs and removes cleanly.
+
+The setup is unsigned, so the first run shows SmartScreen's "Windows protected
+your PC": *More info* then *Run anyway*. Signing it needs a code signing
+certificate, which is the only part of this that costs money. Details, including
+the `--portable` mode that unpacks the game without any shortcuts or registry
+entry, are in [`windows/README.md`](windows/README.md).
+
+---
+
 ## The mark, and the opening screen
 
 The mark is **Six Suns**: a revolver cylinder standing on the horizon where a

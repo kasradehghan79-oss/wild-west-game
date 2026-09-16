@@ -1,7 +1,9 @@
 # build outputs
 dist/*
 !dist/wildwest.apk
+!dist/The Wild West Setup.exe
 android/build/
+windows/build/
 
 # playwright / tooling scratch
 .playwright-mcp/
