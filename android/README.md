@@ -36,6 +36,14 @@ PowerShell script is a thin wrapper so Windows users have a native entry point.
 Neither the JDK nor the SDK has to be on your PATH: the script finds them in the
 usual install locations, or you can point at them with `--java-home` / `--sdk`.
 
+Where you keep them matters, if you install them by hand rather than through
+Android Studio. Put them somewhere that persists - `~/.kilotools`, or the SDK's
+own `%LOCALAPPDATA%\Android\Sdk` - and **not** under `%TEMP%`. A toolchain in
+temp looks fine until a cleaner or an antivirus empties it, and then the folders
+are still there with no executables or jars inside them: `--check` reports the
+build tools missing, `apksigner.bat` cannot find java, and nothing points at the
+cause. This project's toolchain was lost that way once.
+
 ## Build it
 
 **Python, no Gradle:**
